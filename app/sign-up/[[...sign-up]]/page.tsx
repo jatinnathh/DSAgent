@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { SignUp } from "@clerk/nextjs";
 import Spline from '@splinetool/react-spline';
+import BackButton from "@/app/components/BackButton";
 
 export default function SignUpPage() {
   const [showAuth, setShowAuth] = useState(false);
@@ -16,6 +17,7 @@ export default function SignUpPage() {
 
   return (
     <main className="relative w-full h-screen overflow-hidden bg-black">
+      <BackButton />
       
       <div className="absolute inset-0 z-0">
         <Spline scene="https://prod.spline.design/IyXsuwBL5wOwbdoh/scene.splinecode" />

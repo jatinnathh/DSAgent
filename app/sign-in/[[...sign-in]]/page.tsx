@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { SignIn } from "@clerk/nextjs";
 import Spline from '@splinetool/react-spline';
+import BackButton from "@/app/components/BackButton";
 
 export default function SignInPage() {
     const [showAuth, setShowAuth] = useState(false);
@@ -19,6 +20,7 @@ export default function SignInPage() {
 
     return (
         <main className="relative w-full h-screen overflow-hidden bg-black">
+            <BackButton />
 
             {/* 1. Spline Background Layer */}
             <div className="absolute inset-0 z-0">
@@ -30,7 +32,7 @@ export default function SignInPage() {
 
                 {/* We use Tailwind's transition classes to smoothly fade and slide it in */}
                 <div 
-                    className={`absolute bottom-1 left-1/2 -translate-x-1/2 pointer-events-auto transition-all duration-1000 ease-in-out ${
+                    className={`absolute bottom-0 left-1/2 -translate-x-1/2 pointer-events-auto transition-all duration-1000 ease-in-out ${
                         showAuth ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                     }`}
                 >
