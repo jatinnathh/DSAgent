@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-
+import { ClerkProvider } from '@clerk/nextjs'
 export const metadata: Metadata = {
   title: "DSAgent — Autonomous Data Science Agent",
   description:
@@ -13,6 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    <ClerkProvider>
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -28,5 +29,6 @@ export default function RootLayout({
       </head>
       <body>{children}</body>
     </html>
+    </ClerkProvider>
   );
 }

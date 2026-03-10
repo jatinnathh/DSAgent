@@ -1,5 +1,5 @@
 "use client";
-
+import Link from 'next/link';
 import React, { useRef, useMemo, useState, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, Stars } from "@react-three/drei";
@@ -522,7 +522,9 @@ export default function Home() {
           <a href="#features" className="navbar-link">Features</a>
           <a href="#tech" className="navbar-link">Stack</a>
         </div>
-        <button className="navbar-cta">Get Started</button>
+        <Link href="/dashboaord" className="navbar-cta">
+          Get Started
+        </Link>
       </motion.nav>
 
       {/* ============ HERO ============ */}
