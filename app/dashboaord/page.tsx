@@ -1,6 +1,7 @@
 import { UserButton } from "@clerk/nextjs";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
 
 export default async function DashboardPage() {
   // 1. Fetch the authenticated user's details on the server
@@ -9,6 +10,20 @@ export default async function DashboardPage() {
   // 2. Protect the page: Redirect to home if there is no logged-in user
   if (!user) {
     redirect("/");
+  }
+
+  // 3. Sync Clerk user with our Prisma database
+  const userEmail = user.emailAddresses[0]?.emailAddress;
+  
+  if (userEmail) {
+    await prisma.user.upsert({
+      where: { clerkId: user.id },
+      update: { email: userEmail },
+      create: {
+        clerkId: user.id,
+        email: userEmail,
+      },
+    });
   }
 
   return (
