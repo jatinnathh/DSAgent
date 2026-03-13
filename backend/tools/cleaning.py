@@ -125,7 +125,7 @@ def fill_missing_values(
             action = "No mode found, no changes made"
             
     elif strategy == "forward_fill":
-        df[column].fillna(method='ffill', inplace=True)
+        df[column] = df[column].ffill()
         action = "Forward filled from previous rows"
         
     elif strategy == "drop":

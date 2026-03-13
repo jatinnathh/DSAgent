@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import pandas as pd
 import io
 import os
@@ -21,7 +21,11 @@ app = FastAPI(title="DSAgent Backend", version="1.0.0")
 # CORS - allow Next.js frontend to call this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://*.vercel.app",
+        os.getenv("FRONTEND_URL", "http://localhost:3000"),
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +40,23 @@ class AnalysisRequest(BaseModel):
 class ToolExecuteRequest(BaseModel):
     tool_name: str
     arguments: Dict[str, Any]
+
+class VisualizationRequest(BaseModel):
+    type: str = "histogram"
+    column: Optional[str] = None
+    x_column: Optional[str] = None
+    y_column: Optional[str] = None
+    bins: Optional[int] = None
+    title: Optional[str] = None
+    group_by: Optional[str] = None
+    top_n: Optional[int] = None
+    method: Optional[str] = None
+    color_column: Optional[str] = None
+
+class ModelTrainRequest(BaseModel):
+    target_column: str
+    test_size: float = 0.2
+    random_state: int = 42
 
 # ============================================
 # ENDPOINTS
@@ -171,16 +192,17 @@ async def get_data_quality(session_id: str):
         raise HTTPException(status_code=500, detail=f"Error getting quality report: {str(e)}")
 
 @app.post("/session/{session_id}/visualize")
-async def create_visualization(session_id: str, viz_request: Dict[str, Any]):
+async def create_visualization(session_id: str, viz_request: VisualizationRequest):
     """
     Create visualization for a session
     """
     try:
-        # Add session_id to the request
-        viz_request["session_id"] = session_id
+        # Build arguments dict from the Pydantic model
+        args = {k: v for k, v in viz_request.dict().items() if v is not None and k != "type"}
+        args["session_id"] = session_id
         
         # Determine visualization type
-        viz_type = viz_request.get("type", "histogram")
+        viz_type = viz_request.type
         
         tool_mapping = {
             "histogram": "create_histogram",
@@ -194,32 +216,36 @@ async def create_visualization(session_id: str, viz_request: Dict[str, Any]):
         if not tool_name:
             raise HTTPException(status_code=400, detail=f"Unknown visualization type: {viz_type}")
         
-        result = tool_registry.execute(tool_name, viz_request)
+        result = tool_registry.execute(tool_name, args)
         
         if result.success:
             return result.output
         else:
             raise HTTPException(status_code=400, detail=result.error)
             
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Visualization failed: {str(e)}")
 
 @app.post("/session/{session_id}/model")
-async def train_model(session_id: str, model_request: Dict[str, Any]):
+async def train_model(session_id: str, model_request: ModelTrainRequest):
     """
     Train ML model for a session
     """
     try:
-        # Add session_id to the request
-        model_request["session_id"] = session_id
+        args = model_request.dict()
+        args["session_id"] = session_id
         
-        result = tool_registry.execute("auto_ml_pipeline", model_request)
+        result = tool_registry.execute("auto_ml_pipeline", args)
         
         if result.success:
             return result.output
         else:
             raise HTTPException(status_code=400, detail=result.error)
             
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Model training failed: {str(e)}")
 

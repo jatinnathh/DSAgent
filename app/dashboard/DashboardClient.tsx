@@ -438,8 +438,66 @@ function AgentView() {
 interface Props { user: { firstName: string | null; email: string | undefined } }
 
 export default function DashboardClient({ user }: Props) {
-  const [active, setActive] = useState("overview");
-  const [collapsed, setCol] = useState(false);
+  const [activeView, setActiveView] = useState("overview");
+  const [collapsed, setCollapsed]   = useState(false);
+  const [chats, setChats] = useState<any[]>([]);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  const fetchChats = async () => {
+    try {
+      const res = await fetch("/api/chats");
+      if (res.ok) {
+        const data = await res.json();
+        setChats(data.chats || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch chats:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeView === "agent") fetchChats();
+  }, [activeView]);
+
+  const handleNewChat = () => {
+    setSelectedChatId(null);
+  };
+
+  const handleRenameChat = async (id: string) => {
+    if (!editTitle.trim()) {
+      setEditingChatId(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/chats/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle }),
+      });
+      if (res.ok) {
+        setEditingChatId(null);
+        fetchChats();
+      }
+    } catch (e) {
+      console.error("Failed to rename chat:", e);
+    }
+  };
+
+  const handleDeleteChat = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this chat?")) return;
+    try {
+      const res = await fetch(`/api/chats/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        if (selectedChatId === id) setSelectedChatId(null);
+        fetchChats();
+      }
+    } catch (e) {
+      console.error("Failed to delete chat:", e);
+    }
+  };
   const sW = collapsed ? 60 : 228;
 
   const mRef   = useRef<HTMLDivElement>(null);
@@ -479,7 +537,7 @@ export default function DashboardClient({ user }: Props) {
               beta
             </span>
           )}
-          <button onClick={() => setCol(c => !c)}
+          <button onClick={() => setCollapsed(c => !c)}
             style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", padding: 5, borderRadius: 5, display: "flex", marginLeft: collapsed ? 0 : 2 }}>
             <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
               <path d="M3 12h18M3 6h18M3 18h18" />
@@ -496,14 +554,14 @@ export default function DashboardClient({ user }: Props) {
                 </div>
               )}
               {g.items.map(item => (
-                <NavBtn key={item.id} item={item} isActive={active === item.id} collapsed={collapsed} onClick={() => setActive(item.id)} />
+                <NavBtn key={item.id} item={item} isActive={activeView === item.id} collapsed={collapsed} onClick={() => setActiveView(item.id)} />
               ))}
             </div>
           ))}
         </nav>
 
         <div style={{ padding: "8px 7px", borderTop: `0.5px solid ${C.border}` }}>
-          <NavBtn item={{ id: "settings", label: "Settings", badge: null }} isActive={false} collapsed={collapsed} onClick={() => setActive("settings")} />
+          <NavBtn item={{ id: "settings", label: "Settings", badge: null }} isActive={false} collapsed={collapsed} onClick={() => setActiveView("settings")} />
         </div>
         <div style={{ padding: "11px 13px 14px", borderTop: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", gap: 9 }}>
           <UserButton />
@@ -528,7 +586,7 @@ export default function DashboardClient({ user }: Props) {
         }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: C.text, letterSpacing: "-0.01em", fontFamily: C.head }}>
-              {active === "agent" ? "AI Analyst" : active.charAt(0).toUpperCase() + active.slice(1)}
+              {activeView === "agent" ? "AI Analyst" : activeView.charAt(0).toUpperCase() + activeView.slice(1)}
             </div>
             <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>Last updated: just now</div>
           </div>
@@ -542,7 +600,7 @@ export default function DashboardClient({ user }: Props) {
               <span style={{ position: "absolute", top: 4, right: 4, width: 5, height: 5, borderRadius: "50%", background: C.red }} />
             </button>
             <Btn>Export report</Btn>
-            <Btn primary onClick={() => setActive("agent")}>+ Ask AI</Btn>
+            <Btn primary onClick={() => setActiveView("agent")}>+ Ask AI</Btn>
             <span style={{ fontSize: 12, color: C.textSub }}>{user.firstName ?? ""}</span>
             <UserButton />
           </div>
@@ -552,10 +610,163 @@ export default function DashboardClient({ user }: Props) {
         <div style={{ padding: "20px 22px 60px" }}>
 
           {/* AI ANALYST PAGE */}
-          {active === "agent" && <AgentView />}
+          {activeView === "agent" && (
+                  <div style={{ height: "calc(100vh - 120px)", display: "grid", gridTemplateColumns: "280px 1fr", gap: 20 }}>
+                    {/* Chat Sidebar */}
+                    <div style={{ 
+                      background: C.card, 
+                      borderRadius: 16, 
+                      border: `1px solid ${C.border}`,
+                      display: "flex",
+                      flexDirection: "column",
+                      overflow: "hidden"
+                    }}>
+                      <div style={{ padding: "16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <h3 style={{ fontSize: 13, fontWeight: 600, color: C.text, margin: 0 }}>Recent Chats</h3>
+                        <button 
+                          onClick={handleNewChat}
+                          style={{
+                            background: C.cyan,
+                            color: "black",
+                            border: "none",
+                            borderRadius: 6,
+                            padding: "4px 8px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                          New
+                        </button>
+                      </div>
+                      <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+                        {chats.length === 0 ? (
+                          <div style={{ textAlign: "center", padding: "40px 20px", color: C.textMute, fontSize: 12 }}>
+                            No chats yet. Start a new analysis!
+                          </div>
+                        ) : (
+                          chats.map((chat) => (
+                            <div
+                              key={chat.id}
+                              onClick={() => {
+                                if (editingChatId !== chat.id) {
+                                  setSelectedChatId(chat.id);
+                                }
+                              }}
+                              style={{
+                                padding: "12px",
+                                borderRadius: 10,
+                                border: `1px solid ${selectedChatId === chat.id ? C.cyan + "44" : "transparent"}`,
+                                background: selectedChatId === chat.id ? C.cyan + "11" : "transparent",
+                                cursor: "pointer",
+                                transition: "all 0.2s",
+                                marginBottom: 4,
+                                position: "relative",
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = selectedChatId === chat.id ? C.cyan + "1a" : C.border)}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = selectedChatId === chat.id ? C.cyan + "11" : "transparent")}
+                            >
+                              {editingChatId === chat.id ? (
+                                <input
+                                  autoFocus
+                                  value={editTitle}
+                                  onChange={(e) => setEditTitle(e.target.value)}
+                                  onBlur={() => handleRenameChat(chat.id)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleRenameChat(chat.id);
+                                    if (e.key === "Escape") setEditingChatId(null);
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    background: C.bg,
+                                    border: `1px solid ${C.cyan}`,
+                                    borderRadius: 4,
+                                    color: C.text,
+                                    fontSize: 12,
+                                    padding: "2px 4px",
+                                    marginBottom: 4,
+                                    outline: "none"
+                                  }}
+                                />
+                              ) : (
+                                <div 
+                                  onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingChatId(chat.id);
+                                    setEditTitle(chat.title);
+                                  }}
+                                  style={{ fontSize: 12, fontWeight: 500, color: selectedChatId === chat.id ? C.cyan : C.text, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 40 }}
+                                >
+                                  {chat.title}
+                                </div>
+                              )}
+                              <div style={{ fontSize: 10, color: C.textMute }}>
+                                {new Date(chat.updatedAt).toLocaleDateString()} • {chat._count.messages} messages
+                              </div>
+                              <div style={{ position: "absolute", top: 12, right: 8, display: "flex", gap: 4 }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingChatId(chat.id);
+                                    setEditTitle(chat.title);
+                                  }}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: C.textMute,
+                                    cursor: "pointer",
+                                    padding: 4,
+                                    borderRadius: 4,
+                                    opacity: 0.6
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.color = C.cyan)}
+                                  onMouseLeave={(e) => (e.currentTarget.style.color = C.textMute)}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button
+                                  onClick={(e) => handleDeleteChat(chat.id, e)}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: C.textMute,
+                                    cursor: "pointer",
+                                    padding: 4,
+                                    borderRadius: 4,
+                                    opacity: 0.6
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.color = C.red)}
+                                  onMouseLeave={(e) => (e.currentTarget.style.color = C.textMute)}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path></svg>
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Chat Main Area */}
+                    <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+                      <AgentChat 
+                        chatId={selectedChatId} 
+                        sessionId={activeView === "agent" ? undefined : undefined} // placeholder
+                        onChatCreated={(id) => {
+                          setSelectedChatId(id);
+                          fetchChats();
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
 
           {/* OVERVIEW PAGE */}
-          {active !== "agent" && (
+          {activeView !== "agent" && (
             <>
               {/* HERO */}
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.18 }}
@@ -571,8 +782,8 @@ export default function DashboardClient({ user }: Props) {
                     <span style={{ color: C.green, fontWeight: 600 }}>2 new reports</span> ready for review.
                   </p>
                   <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-                    <Btn primary onClick={() => setActive("agent")}>Ask AI Analyst</Btn>
-                    <Btn onClick={() => setActive("datasets")}>Upload Dataset</Btn>
+                    <Btn primary onClick={() => setActiveView("agent")}>Ask AI Analyst</Btn>
+                    <Btn onClick={() => setActiveView("datasets")}>Upload Dataset</Btn>
                   </div>
                 </div>
               </motion.div>
@@ -601,8 +812,8 @@ export default function DashboardClient({ user }: Props) {
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.34 }}
                 style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
                 {[
-                  { label: "Ask AI Analyst", onClick: () => setActive("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> },
-                  { label: "Upload Data",    onClick: () => setActive("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> },
+                  { label: "Ask AI Analyst", onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> },
+                  { label: "Upload Data",    onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> },
                   { label: "Run Pipeline",   onClick: undefined, icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg> },
                   { label: "Deploy Model",   onClick: undefined, icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg> },
                 ].map((a, i) => <ActionCard key={i} label={a.label} icon={a.icon} onClick={a.onClick} />)}
@@ -663,7 +874,7 @@ export default function DashboardClient({ user }: Props) {
                       <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Datasets</div>
                       <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Uploaded sources</div>
                     </div>
-                    <Btn primary onClick={() => setActive("agent")}>+ Upload</Btn>
+                    <Btn primary onClick={() => setActiveView("agent")}>+ Upload</Btn>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 92px 52px 82px 76px", padding: "8px 18px", gap: 10, borderBottom: `0.5px solid ${C.border}` }}>
                     {["File", "Rows", "Cols", "Size", "Added"].map(h => <span key={h} style={TH}>{h}</span>)}
