@@ -9,12 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@clerk/nextjs": "^7.0.2",
     "@prisma/client": "^6.19.2",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^1.12.68",
+    "bytez.js": "^3.0.0",
     "framer-motion": "^12.35.2",
     "next": "16.1.6",
     "prisma": "^6.19.2",

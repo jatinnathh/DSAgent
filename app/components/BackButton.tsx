@@ -8,15 +8,14 @@ export default function BackButton() {
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.6, delay: 0.4 }}
-      className="fixed top-8 left-8 z-[100]"
+      className="fixed top-8 left-8 z-[100] flex gap-4"
     >
       <Link
         href="/"
         className="
           group flex items-center justify-center
-          px-24 py-10 rounded-full
-          min-w-[150px]
-          min-h-[50px]
+          px-6 py-3 rounded-full
+          min-w-[120px]
           bg-white/10 backdrop-blur-xl
           border border-white/20
           shadow-[0_4px_24px_-1px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.5)]
@@ -24,8 +23,26 @@ export default function BackButton() {
           hover:bg-white/20 hover:shadow-[0_8px_32px_-1px_rgba(0,0,0,0.1),inset_0_1px_1px_rgba(255,255,255,0.7)]
         "
       >
-        <span className="text-[15px] font-medium text-black/80 tracking-wide transition-colors group-hover:text-black">
-          Back to Home
+        <span className="text-sm font-medium text-black/80 tracking-wide transition-colors group-hover:text-black">
+          ← Home
+        </span>
+      </Link>
+
+      <Link
+        href="/agent"
+        className="
+          group flex items-center justify-center
+          px-6 py-3 rounded-full
+          min-w-[120px]
+          bg-cyan-500/20 backdrop-blur-xl
+          border border-cyan-400/30
+          shadow-[0_4px_24px_-1px_rgba(0,212,255,0.15)]
+          transition-all duration-300 ease-out
+          hover:bg-cyan-500/30 hover:shadow-[0_8px_32px_-1px_rgba(0,212,255,0.25)]
+        "
+      >
+        <span className="text-sm font-medium text-white tracking-wide">
+          🤖 DSAgent
         </span>
       </Link>
     </motion.div>

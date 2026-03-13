@@ -9,7 +9,12 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+repo_dump.txt
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+.env
 # testing
 /coverage
 

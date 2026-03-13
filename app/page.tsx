@@ -522,7 +522,7 @@ export default function Home() {
           <a href="#features" className="navbar-link">Features</a>
           <a href="#tech" className="navbar-link">Stack</a>
         </div>
-        <Link href="/dashboaord" className="navbar-cta">
+        <Link href="/dashboard" className="navbar-cta">
           Get Started
         </Link>
       </motion.nav>
