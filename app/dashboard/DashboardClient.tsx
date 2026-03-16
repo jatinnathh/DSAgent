@@ -1,14 +1,15 @@
-// app\dashboard\DashboardClient.tsx
+// app/dashboard/DashboardClient.tsx
 "use client";
 
 import { useRef, useMemo, useState, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, Stars } from "@react-three/drei";
-import { motion, useInView } from "framer-motion";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import * as THREE from "three";
 import AgentChat from "@/app/components/AgentChat";
+import PipelineBuilder from "@/app/components/PipelineBuilder";
 
 /* ─────────────────────────── DESIGN TOKENS ────────────────────────────── */
 const C = {
@@ -41,6 +42,20 @@ const C = {
   mono: "'JetBrains Mono', 'Fira Code', monospace",
   sans: "'Inter', system-ui, sans-serif",
   head: "'Sora', 'Inter', sans-serif",
+};
+
+const CATEGORY_COLOR: Record<string, string> = {
+  cleaning: C.amber,
+  eda: C.cyan,
+  visualization: C.purple,
+  modeling: C.green,
+};
+
+const CATEGORY_ICON: Record<string, string> = {
+  cleaning: "🧹",
+  eda: "🔍",
+  visualization: "📊",
+  modeling: "🤖",
 };
 
 /* ─────────────────────────── 3-D BANNER ───────────────────────────────── */
@@ -126,82 +141,78 @@ function useCountUp(end: number, duration = 2000, trigger = true) {
   return v;
 }
 
-/* ─────────────────────────── DATA ─────────────────────────────────────── */
+/* ─────────────────────────── STATIC DATA ──────────────────────────────── */
 const NAV_GROUPS = [
   {
     section: "WORKSPACE",
     items: [
-      { id: "overview", label: "Overview", badge: null },
-      { id: "agent", label: "AI Analyst", badge: "NEW" },
-      { id: "pipelines", label: "Pipelines", badge: "3" },
-      { id: "datasets", label: "Datasets", badge: "12" },
-      { id: "models", label: "Models", badge: null },
+      { id: "overview",  label: "Overview",     badge: null  },
+      { id: "agent",     label: "AI Analyst",   badge: "NEW" },
+      { id: "pipelines", label: "Pipelines",    badge: "3"   },
+      { id: "datasets",  label: "Datasets",     badge: "12"  },
+      { id: "models",    label: "Models",       badge: null  },
     ],
   },
   {
     section: "INTELLIGENCE",
     items: [
       { id: "explainability", label: "Explainability", badge: null },
-      { id: "reports", label: "Reports", badge: null },
+      { id: "reports",        label: "Reports",        badge: null },
     ],
   },
   {
     section: "DEPLOY",
     items: [
-      { id: "endpoints", label: "API Endpoints", badge: null },
-      { id: "monitoring", label: "Monitoring", badge: null },
+      { id: "endpoints",  label: "API Endpoints", badge: null },
+      { id: "monitoring", label: "Monitoring",    badge: null },
     ],
   },
 ];
 
-const PIPELINES = [
-  { id: "PL-2847", name: "Customer Churn Analysis", status: "completed" as const, model: "XGBoost", score: "94.2%", time: "12m ago" },
-  { id: "PL-2846", name: "Revenue Forecasting Q1", status: "running" as const, model: "LSTM", score: "—", time: "34m ago" },
-  { id: "PL-2845", name: "Fraud Detection v3", status: "completed" as const, model: "Random Forest", score: "97.8%", time: "2h ago" },
-  { id: "PL-2844", name: "Sentiment Classification", status: "failed" as const, model: "DistilBERT", score: "—", time: "5h ago" },
-  { id: "PL-2843", name: "Supply Chain Optimization", status: "completed" as const, model: "LightGBM", score: "89.1%", time: "1d ago" },
+const PIPELINES_DEMO = [
+  { id: "PL-2847", name: "Customer Churn Analysis",   status: "completed" as const, model: "XGBoost",       score: "94.2%", time: "12m ago" },
+  { id: "PL-2846", name: "Revenue Forecasting Q1",    status: "running"   as const, model: "LSTM",          score: "—",     time: "34m ago" },
+  { id: "PL-2845", name: "Fraud Detection v3",        status: "completed" as const, model: "Random Forest", score: "97.8%", time: "2h ago"  },
+  { id: "PL-2844", name: "Sentiment Classification",  status: "failed"    as const, model: "DistilBERT",   score: "—",     time: "5h ago"  },
+  { id: "PL-2843", name: "Supply Chain Optimization", status: "completed" as const, model: "LightGBM",     score: "89.1%", time: "1d ago"  },
 ];
 
-const DATASETS = [
-  { name: "customer_churn.csv", rows: "45,231", cols: 23, size: "12.4 MB", date: "Today" },
-  { name: "sales_2024.csv", rows: "128,400", cols: 31, size: "34.7 MB", date: "Yesterday" },
-  { name: "transactions.parquet", rows: "1,240,000", cols: 18, size: "156 MB", date: "2 days ago" },
-  { name: "reviews.json", rows: "8,920", cols: 6, size: "4.2 MB", date: "3 days ago" },
+const DATASETS_DEMO = [
+  { name: "customer_churn.csv",   rows: "45,231",    cols: 23, size: "12.4 MB", date: "Today"     },
+  { name: "sales_2024.csv",       rows: "128,400",   cols: 31, size: "34.7 MB", date: "Yesterday" },
+  { name: "transactions.parquet", rows: "1,240,000", cols: 18, size: "156 MB",  date: "2 days ago"},
+  { name: "reviews.json",         rows: "8,920",     cols:  6, size: "4.2 MB",  date: "3 days ago"},
 ];
 
-const ACTIVITY = [
-  { type: "success", text: "Pipeline PL-2847 completed — 94.2% accuracy", time: "12m ago" },
-  { type: "deploy", text: "XGBoost model deployed to endpoint /v2/churn", time: "28m ago" },
-  { type: "upload", text: "customer_churn.csv uploaded (45,231 rows)", time: "1h ago" },
-  { type: "warning", text: "Data drift detected on Revenue Forecast model", time: "3h ago" },
-  { type: "success", text: "Pipeline PL-2845 completed — 97.8% accuracy", time: "5h ago" },
-  { type: "report", text: "Q4 Comprehensive Analysis report generated", time: "1d ago" },
+const ACTIVITY_DEMO = [
+  { type: "success", text: "Pipeline PL-2847 completed — 94.2% accuracy",         time: "12m ago" },
+  { type: "deploy",  text: "XGBoost model deployed to endpoint /v2/churn",         time: "28m ago" },
+  { type: "upload",  text: "customer_churn.csv uploaded (45,231 rows)",            time: "1h ago"  },
+  { type: "warning", text: "Data drift detected on Revenue Forecast model",         time: "3h ago"  },
+  { type: "success", text: "Pipeline PL-2845 completed — 97.8% accuracy",         time: "5h ago"  },
+  { type: "report",  text: "Q4 Comprehensive Analysis report generated",           time: "1d ago"  },
 ];
 
 const MODEL_PERF = [
-  { name: "Random Forest — Fraud Detection", score: 97.8, color: C.green },
-  { name: "XGBoost — Churn Prediction", score: 94.2, color: C.text },
-  { name: "LightGBM — Supply Chain", score: 89.1, color: C.purple },
-  { name: "LSTM — Revenue Forecast", score: 86.4, color: C.amber },
+  { name: "Random Forest — Fraud Detection", score: 97.8, color: C.green  },
+  { name: "XGBoost — Churn Prediction",      score: 94.2, color: C.text   },
+  { name: "LightGBM — Supply Chain",         score: 89.1, color: C.purple },
+  { name: "LSTM — Revenue Forecast",         score: 86.4, color: C.amber  },
 ];
 
-const STATUS = {
-  completed: { label: "Done", color: C.green, bg: C.greenBg, border: C.greenBorder },
-  running: { label: "Running", color: C.text, bg: C.whiteDim, border: C.borderMd },
-  failed: { label: "Error", color: C.red, bg: C.redBg, border: C.redBorder },
+const STATUS_MAP = {
+  completed: { label: "Done",    color: C.green, bg: C.greenBg, border: C.greenBorder },
+  running:   { label: "Running", color: C.text,  bg: C.whiteDim, border: C.borderMd  },
+  failed:    { label: "Error",   color: C.red,   bg: C.redBg,   border: C.redBorder  },
 } as const;
 
 const ACT_DOT: Record<string, string> = {
-  success: C.green,
-  deploy: C.purple,
-  upload: C.textSub,
-  warning: C.amber,
-  report: C.pink,
+  success: C.green, deploy: C.purple, upload: C.textSub, warning: C.amber, report: C.pink,
 };
 
 const SPARKLINE = [80, 72, 60, 50, 42, 35, 28, 22];
 
-/* ─────────────────────────── HELPERS ──────────────────────────────────── */
+/* ─────────────────────────── SMALL HELPERS ────────────────────────────── */
 function getGreeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
@@ -252,15 +263,10 @@ function Sparkline() {
   );
 }
 
-function Pill({ status }: { status: keyof typeof STATUS }) {
-  const s = STATUS[status];
+function Pill({ status }: { status: keyof typeof STATUS_MAP }) {
+  const s = STATUS_MAP[status];
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 5,
-      padding: "3px 8px", borderRadius: 5,
-      background: s.bg, color: s.color, border: `0.5px solid ${s.border}`,
-      fontSize: 10, fontWeight: 600, letterSpacing: "0.03em", fontFamily: C.mono,
-    }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 5, background: s.bg, color: s.color, border: `0.5px solid ${s.border}`, fontSize: 10, fontWeight: 600, letterSpacing: "0.03em", fontFamily: C.mono }}>
       <span style={{ width: 5, height: 5, borderRadius: "50%", background: s.color, flexShrink: 0, animation: status === "running" ? "pls 1.8s ease-in-out infinite" : "none" }} />
       {s.label}
     </span>
@@ -270,37 +276,31 @@ function Pill({ status }: { status: keyof typeof STATUS }) {
 function NI({ id }: { id: string }) {
   const p = { width: 15, height: 15, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const icons: Record<string, React.ReactNode> = {
-    overview: <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>,
-    pipelines: <svg {...p}><polyline points="22,12 18,12 15,21 9,3 6,12 2,12" /></svg>,
-    datasets: <svg {...p}><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" /></svg>,
-    models: <svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>,
-    agent: <svg {...p}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>,
-    explainability: <svg {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
-    reports: <svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14,2 14,8 20,8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>,
-    endpoints: <svg {...p}><rect x="2" y="7" width="12" height="7" rx="1" /><path d="M5 7V5a3 3 0 016 0v2" /></svg>,
-    monitoring: <svg {...p}><circle cx="12" cy="12" r="5" /><path d="M12 7v5l2 2" /></svg>,
-    settings: <svg {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /></svg>,
+    overview:       <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>,
+    pipelines:      <svg {...p}><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>,
+    datasets:       <svg {...p}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg>,
+    models:         <svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+    agent:          <svg {...p}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>,
+    explainability: <svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+    reports:        <svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+    endpoints:      <svg {...p}><rect x="2" y="7" width="12" height="7" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>,
+    monitoring:     <svg {...p}><circle cx="12" cy="12" r="5"/><path d="M12 7v5l2 2"/></svg>,
+    settings:       <svg {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
   };
   return <>{icons[id] ?? null}</>;
 }
 
-const card: React.CSSProperties = { background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: "hidden" };
-const cardHdr: React.CSSProperties = { padding: "14px 18px", borderBottom: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" };
-const TH: React.CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: C.textMute, fontFamily: C.mono };
+const card: React.CSSProperties       = { background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: "hidden" };
+const cardHdr: React.CSSProperties   = { padding: "14px 18px", borderBottom: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" };
+const TH: React.CSSProperties        = { fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" as const, color: C.textMute, fontFamily: C.mono };
 
 function Btn({ children, primary, onClick, style }: { children: React.ReactNode; primary?: boolean; onClick?: () => void; style?: React.CSSProperties }) {
   const [hov, setHov] = useState(false);
   return (
     <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        padding: primary ? "7px 16px" : "6px 12px", borderRadius: 7,
-        border: `0.5px solid ${hov ? C.borderHi : primary ? C.borderMd : C.border}`,
-        background: primary ? (hov ? "#F0F0F0" : C.white) : (hov ? C.cardHover : "transparent"),
-        color: primary ? C.bg : (hov ? C.text : C.textSub),
-        fontSize: 11, fontWeight: primary ? 600 : 500, fontFamily: C.sans, cursor: "pointer",
-        display: "inline-flex", alignItems: "center", gap: 5, transition: "all 0.14s", ...style,
-      }}
-    >{children}</button>
+      style={{ padding: primary ? "7px 16px" : "6px 12px", borderRadius: 7, border: `0.5px solid ${hov ? C.borderHi : primary ? C.borderMd : C.border}`, background: primary ? (hov ? "#F0F0F0" : C.white) : (hov ? C.cardHover : "transparent"), color: primary ? C.bg : (hov ? C.text : C.textSub), fontSize: 11, fontWeight: primary ? 600 : 500, fontFamily: C.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, transition: "all 0.14s", ...style }}>
+      {children}
+    </button>
   );
 }
 
@@ -309,27 +309,11 @@ function NavBtn({ item, isActive, collapsed, onClick }: { item: { id: string; la
   const isNew = item.badge === "NEW";
   return (
     <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        width: "100%", display: "flex", alignItems: "center", gap: 9,
-        padding: collapsed ? "9px 0" : "8px 10px", justifyContent: collapsed ? "center" : "flex-start",
-        borderRadius: 8,
-        border: isActive ? `0.5px solid ${C.borderMd}` : "0.5px solid transparent",
-        background: isActive || hov ? C.cardHover : "transparent",
-        color: isActive ? C.text : hov ? C.textSub : C.textMute,
-        fontSize: 12, fontWeight: isActive ? 500 : 400,
-        fontFamily: C.sans, cursor: "pointer", transition: "all 0.13s",
-      }}
-    >
+      style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: collapsed ? "9px 0" : "8px 10px", justifyContent: collapsed ? "center" : "flex-start", borderRadius: 8, border: isActive ? `0.5px solid ${C.borderMd}` : "0.5px solid transparent", background: isActive || hov ? C.cardHover : "transparent", color: isActive ? C.text : hov ? C.textSub : C.textMute, fontSize: 12, fontWeight: isActive ? 500 : 400, fontFamily: C.sans, cursor: "pointer", transition: "all 0.13s" }}>
       <NI id={item.id} />
       {!collapsed && <span style={{ flex: 1, textAlign: "left" }}>{item.label}</span>}
       {!collapsed && item.badge && (
-        <span style={{
-          fontSize: 9, padding: "1px 6px", borderRadius: 8,
-          background: isNew ? `${C.cyan}20` : C.pill,
-          color: isNew ? C.cyan : C.textSub,
-          border: `0.5px solid ${isNew ? C.cyan + "40" : C.border}`,
-          fontFamily: C.mono,
-        }}>{item.badge}</span>
+        <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: isNew ? `${C.cyan}20` : C.pill, color: isNew ? C.cyan : C.textSub, border: `0.5px solid ${isNew ? C.cyan + "40" : C.border}`, fontFamily: C.mono }}>{item.badge}</span>
       )}
     </button>
   );
@@ -339,31 +323,19 @@ function ActionCard({ label, icon, onClick }: { label: string; icon: React.React
   const [hov, setHov] = useState(false);
   return (
     <button onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={onClick}
-      style={{
-        display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderRadius: 10, cursor: "pointer",
-        background: hov ? C.cardHover : C.card, border: `0.5px solid ${hov ? C.borderMd : C.border}`,
-        color: hov ? C.text : C.textSub, fontSize: 12, fontWeight: 500, fontFamily: C.sans, transition: "all 0.13s",
-      }}
-    >{icon}{label}</button>
+      style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderRadius: 10, cursor: "pointer", background: hov ? C.cardHover : C.card, border: `0.5px solid ${hov ? C.borderMd : C.border}`, color: hov ? C.text : C.textSub, fontSize: 12, fontWeight: 500, fontFamily: C.sans, transition: "all 0.13s" }}>
+      {icon}{label}
+    </button>
   );
 }
 
-function PipelineRow({ row }: { row: typeof PIPELINES[number] }) {
+function PipelineDemoRow({ row }: { row: typeof PIPELINES_DEMO[number] }) {
   const [hov, setHov] = useState(false);
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        display: "grid", gridTemplateColumns: "72px 1fr 88px 104px 72px 60px",
-        padding: "10px 18px", gap: 10, alignItems: "center",
-        borderBottom: `0.5px solid ${C.border}`,
-        background: hov ? C.cardHover : "transparent", cursor: "pointer", transition: "background 0.12s",
-      }}
-    >
+      style={{ display: "grid", gridTemplateColumns: "72px 1fr 88px 104px 72px 60px", padding: "10px 18px", gap: 10, alignItems: "center", borderBottom: `0.5px solid ${C.border}`, background: hov ? C.cardHover : "transparent", cursor: "pointer", transition: "background 0.12s" }}>
       <span style={{ fontFamily: C.mono, fontSize: 10, color: C.textMute }}>{row.id}</span>
-      <div>
-        <span style={{ fontSize: 12, color: C.textSub, fontWeight: 500 }}>{row.name}</span>
-        {row.status === "running" && <RunningBar />}
-      </div>
+      <div><span style={{ fontSize: 12, color: C.textSub, fontWeight: 500 }}>{row.name}</span>{row.status === "running" && <RunningBar />}</div>
       <div><Pill status={row.status} /></div>
       <span style={{ fontFamily: C.mono, fontSize: 10, color: C.textMute }}>{row.model}</span>
       <span style={{ fontFamily: C.mono, fontSize: 11, color: row.score === "—" ? C.textMute : C.green, fontWeight: 600 }}>{row.score}</span>
@@ -372,16 +344,11 @@ function PipelineRow({ row }: { row: typeof PIPELINES[number] }) {
   );
 }
 
-function ActivityRow({ item, last }: { item: typeof ACTIVITY[number]; last: boolean }) {
+function ActivityRow({ item, last }: { item: typeof ACTIVITY_DEMO[number]; last: boolean }) {
   const [hov, setHov] = useState(false);
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        display: "flex", gap: 10, padding: "10px 16px",
-        borderBottom: last ? "none" : `0.5px solid ${C.border}`,
-        background: hov ? C.cardHover : "transparent", transition: "background 0.12s",
-      }}
-    >
+      style={{ display: "flex", gap: 10, padding: "10px 16px", borderBottom: last ? "none" : `0.5px solid ${C.border}`, background: hov ? C.cardHover : "transparent", transition: "background 0.12s" }}>
       <div style={{ width: 7, height: 7, borderRadius: "50%", background: ACT_DOT[item.type] ?? C.textMute, marginTop: 4, flexShrink: 0 }} />
       <div>
         <p style={{ fontSize: 11, color: C.textSub, lineHeight: 1.55 }}>{item.text}</p>
@@ -391,20 +358,14 @@ function ActivityRow({ item, last }: { item: typeof ACTIVITY[number]; last: bool
   );
 }
 
-function DatasetRow({ ds, last }: { ds: typeof DATASETS[number]; last: boolean }) {
+function DatasetDemoRow({ ds, last }: { ds: typeof DATASETS_DEMO[number]; last: boolean }) {
   const [hov, setHov] = useState(false);
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        display: "grid", gridTemplateColumns: "1fr 92px 52px 82px 76px",
-        padding: "10px 18px", gap: 10, alignItems: "center",
-        borderBottom: last ? "none" : `0.5px solid ${C.border}`,
-        background: hov ? C.cardHover : "transparent", cursor: "pointer", transition: "background 0.12s",
-      }}
-    >
+      style={{ display: "grid", gridTemplateColumns: "1fr 92px 52px 82px 76px", padding: "10px 18px", gap: 10, alignItems: "center", borderBottom: last ? "none" : `0.5px solid ${C.border}`, background: hov ? C.cardHover : "transparent", cursor: "pointer", transition: "background 0.12s" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
         <div style={{ width: 24, height: 24, borderRadius: 5, background: C.pill, border: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={C.textSub} strokeWidth={1.5} strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14,2 14,8 20,8" /></svg>
+          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={C.textSub} strokeWidth={1.5} strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
         </div>
         <span style={{ fontFamily: C.mono, fontSize: 11, color: C.textSub }}>{ds.name}</span>
       </div>
@@ -418,146 +379,409 @@ function DatasetRow({ ds, last }: { ds: typeof DATASETS[number]; last: boolean }
 
 /* ─────────────────────────── AGENT VIEW ───────────────────────────────── */
 function AgentView() {
+  const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(false);
+  const [chats, setChats] = useState<any[]>([]);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+  const fetchChats = async () => {
+    try {
+      const res = await fetch("/api/chats");
+      if (res.ok) { const d = await res.json(); setChats(d.chats || []); }
+    } catch {}
+  };
+
+  useEffect(() => { fetchChats(); }, []);
+
   return (
-    <div style={{ height: "calc(100vh - 54px - 40px)", display: "flex", flexDirection: "column" }}>
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={{ fontFamily: C.head, fontSize: "1.1rem", fontWeight: 700, color: C.text, marginBottom: 4 }}>
-          AI Data Analyst
-        </h2>
-        <p style={{ fontSize: 12, color: C.textSub, lineHeight: 1.6 }}>
-          Upload a CSV and ask DSAgent to analyze it — it will automatically clean data, find patterns, train models, and explain results.
-        </p>
+    <div style={{ height: "calc(100vh - 120px)", display: "grid", gridTemplateColumns: chatSidebarCollapsed ? "42px 1fr" : "280px 1fr", gap: 20, transition: "grid-template-columns 0.25s ease" }}>
+      {/* Sidebar */}
+      <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={() => setChatSidebarCollapsed(v => !v)} style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", fontSize: 14 }}>
+              {chatSidebarCollapsed ? "▶" : "◀"}
+            </button>
+            {!chatSidebarCollapsed && <h3 style={{ fontSize: 13, fontWeight: 600, color: C.text, margin: 0 }}>Recent Chats</h3>}
+          </div>
+          {!chatSidebarCollapsed && (
+            <button onClick={() => setSelectedChatId(null)} style={{ background: C.cyan, color: "black", border: "none", borderRadius: 6, padding: "4px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ New</button>
+          )}
+        </div>
+        {!chatSidebarCollapsed && (
+          <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+            {chats.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 20px", color: C.textMute, fontSize: 12 }}>No chats yet</div>
+            ) : chats.map((chat) => (
+              <div key={chat.id} onClick={() => setSelectedChatId(chat.id)}
+                style={{ padding: "12px", borderRadius: 10, border: selectedChatId === chat.id ? `1px solid ${C.cyan}44` : "transparent", background: selectedChatId === chat.id ? `${C.cyan}11` : "transparent", cursor: "pointer", marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: selectedChatId === chat.id ? C.cyan : C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{chat.title}</div>
+                <div style={{ fontSize: 10, color: C.textMute }}>{chat._count.messages} messages</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
-        <AgentChat />
+      {/* Chat area */}
+      <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+        <AgentChat chatId={selectedChatId} onChatCreated={(id) => { setSelectedChatId(id); fetchChats(); }} />
       </div>
     </div>
   );
 }
 
-/* ─────────────────────────── MAIN ─────────────────────────────────────── */
+/* ─────────────────────────── PIPELINE VIEW ────────────────────────────── */
+function PipelineListCard({ pipeline, onRefresh }: { pipeline: any; onRefresh: () => void }) {
+  const [hov, setHov] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const statusColor: Record<string, string> = { draft: C.textMute, running: C.amber, completed: C.green, failed: C.red };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this pipeline?")) return;
+    setDeleting(true);
+    await fetch(`/api/pipelines/${pipeline.id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  const steps = Array.isArray(pipeline.steps) ? pipeline.steps : [];
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ padding: "16px 18px", background: hov ? C.cardHover : C.card, border: `1px solid ${hov ? C.borderMd : C.border}`, borderRadius: 12, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", transition: "all 0.13s" }}>
+      {/* Icon */}
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${C.cyan}15`, border: `1px solid ${C.cyan}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>⚡</div>
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: C.head, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 3 }}>{pipeline.name}</div>
+        <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>{steps.length} steps · {pipeline._count?.runs ?? 0} runs · {new Date(pipeline.updatedAt).toLocaleDateString()}</div>
+      </div>
+      {/* Category pills */}
+      <div style={{ display: "flex", gap: 4 }}>
+        {["cleaning", "eda", "visualization", "modeling"].map((cat) => {
+          const count = steps.filter((s: any) => s.category === cat).length;
+          if (!count) return null;
+          return (
+            <span key={cat} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: `${CATEGORY_COLOR[cat]}18`, color: CATEGORY_COLOR[cat], fontFamily: C.mono, fontWeight: 600 }}>
+              {CATEGORY_ICON[cat]} {count}
+            </span>
+          );
+        })}
+      </div>
+      {/* Status */}
+      <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: `${statusColor[pipeline.status] || C.textMute}18`, color: statusColor[pipeline.status] || C.textMute, fontFamily: C.mono, fontWeight: 600, border: `1px solid ${statusColor[pipeline.status] || C.textMute}33` }}>
+        {pipeline.status}
+      </span>
+      {/* Delete */}
+      <button onClick={handleDelete} disabled={deleting} style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", padding: "4px", borderRadius: 4, fontSize: 13, opacity: deleting ? 0.3 : 1, transition: "color 0.15s" }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = C.red)} onMouseLeave={(e) => (e.currentTarget.style.color = C.textMute)}>
+        🗑
+      </button>
+    </motion.div>
+  );
+}
+
+function PipelineView() {
+  const [savedPipelines, setSavedPipelines] = useState<any[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [view, setView] = useState<"list" | "create">("list");
+
+  const fetchPipelines = async () => {
+    setLoadingList(true);
+    try {
+      const res = await fetch("/api/pipelines");
+      if (res.ok) { const d = await res.json(); setSavedPipelines(d.pipelines || []); }
+    } finally { setLoadingList(false); }
+  };
+
+  useEffect(() => { fetchPipelines(); }, []);
+
+  if (view === "create") {
+    return (
+      <div style={{ height: "calc(100vh - 120px)", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexShrink: 0 }}>
+          <button onClick={() => { setView("list"); fetchPipelines(); }}
+            style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 14px", color: C.textSub, fontSize: 11, cursor: "pointer", fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.borderColor = C.borderMd; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textSub; (e.currentTarget as HTMLElement).style.borderColor = C.border; }}>
+            ← Pipelines
+          </button>
+          <h2 style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, margin: 0 }}>Pipeline Builder</h2>
+          <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 4, background: `${C.cyan}15`, color: C.cyan, border: `1px solid ${C.cyan}30`, fontFamily: C.mono }}>AI-Assisted</span>
+        </div>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <PipelineBuilder onSaved={() => fetchPipelines()} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontFamily: C.head, fontSize: "1.15rem", fontWeight: 700, color: C.text, marginBottom: 5, letterSpacing: "-0.02em" }}>Pipelines</h2>
+          <p style={{ fontSize: 12, color: C.textSub, margin: 0, lineHeight: 1.6 }}>Build, save and re-run automated data science workflows.</p>
+        </div>
+        <button onClick={() => setView("create")}
+          style={{ padding: "8px 20px", borderRadius: 9, border: "none", background: `linear-gradient(135deg, ${C.cyan}, #0099CC)`, color: "#030712", fontSize: 12, fontWeight: 700, fontFamily: C.head, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, boxShadow: `0 4px 20px ${C.cyan}30` }}>
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Pipeline
+        </button>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
+        {[
+          { label: "Total Pipelines",  value: savedPipelines.length,                                                  color: C.cyan   },
+          { label: "Completed",        value: savedPipelines.filter(p => p.status === "completed").length,            color: C.green  },
+          { label: "Draft",            value: savedPipelines.filter(p => p.status === "draft").length,                color: C.textSub},
+          { label: "Total Steps",      value: savedPipelines.reduce((acc,p) => acc + (Array.isArray(p.steps) ? p.steps.length : 0), 0), color: C.purple },
+        ].map((s, i) => (
+          <div key={i} style={{ ...card, padding: "14px 16px" }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, fontFamily: C.mono }}>{s.label}</div>
+            <div style={{ fontFamily: C.head, fontSize: "1.5rem", fontWeight: 700, color: s.color, letterSpacing: "-0.03em" }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* List */}
+      {loadingList ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ height: 72, borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, opacity: 0.4 + i * 0.1 }} />
+          ))}
+        </div>
+      ) : savedPipelines.length === 0 ? (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          style={{ textAlign: "center", padding: "80px 20px", background: C.card, borderRadius: 16, border: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>⚡</div>
+          <div style={{ fontFamily: C.head, fontSize: "1.05rem", fontWeight: 600, color: C.text, marginBottom: 8 }}>No pipelines yet</div>
+          <p style={{ fontSize: 12, color: C.textSub, marginBottom: 24, maxWidth: 320, margin: "0 auto 24px" }}>
+            Create your first pipeline. Upload a CSV, let the AI suggest steps, then run them automatically.
+          </p>
+          <button onClick={() => setView("create")}
+            style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: `linear-gradient(135deg, ${C.cyan}, #0099CC)`, color: "#030712", fontSize: 12, fontWeight: 700, fontFamily: C.head, cursor: "pointer" }}>
+            Build First Pipeline
+          </button>
+        </motion.div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <AnimatePresence>
+            {savedPipelines.map(p => <PipelineListCard key={p.id} pipeline={p} onRefresh={fetchPipelines} />)}
+          </AnimatePresence>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────── OVERVIEW ─────────────────────────────────── */
+function OverviewContent({ user, setActiveView }: { user: { firstName: string | null }; setActiveView: (v: string) => void }) {
+  const mRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(mRef, { once: true });
+  const datasets  = useCountUp(24,    1500, inView);
+  const pipelines = useCountUp(7,     1500, inView);
+  const models    = useCountUp(156,   2000, inView);
+  const apiCalls  = useCountUp(12847, 2400, inView);
+
+  return (
+    <>
+      {/* HERO */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.18 }}
+        style={{ ...card, height: 184, marginBottom: 18, display: "flex", overflow: "hidden", position: "relative" }}>
+        <div style={{ position: "absolute", inset: 0, opacity: 0.35 }}><BannerScene /></div>
+        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, ${C.card} 0%, ${C.card}CC 42%, transparent 100%)` }} />
+        <div style={{ position: "relative", zIndex: 2, padding: "26px 28px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <p style={{ fontFamily: C.head, fontSize: "1.4rem", fontWeight: 700, color: C.text, marginBottom: 6, letterSpacing: "-0.025em" }}>
+            {getGreeting()}, {user.firstName ?? "there"}
+          </p>
+          <p style={{ fontSize: "0.82rem", color: C.textSub, lineHeight: 1.65, maxWidth: 380 }}>
+            You have <span style={{ color: C.text, fontWeight: 600 }}>3 pipelines</span> running and{" "}
+            <span style={{ color: C.green, fontWeight: 600 }}>2 new reports</span> ready for review.
+          </p>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <Btn primary onClick={() => setActiveView("agent")}>Ask AI Analyst</Btn>
+            <Btn onClick={() => setActiveView("pipelines")}>Build Pipeline</Btn>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* METRICS */}
+      <motion.div ref={mRef} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.26 }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
+        {[
+          { label: "Datasets",      value: datasets,  suffix: "",       pct: 65 },
+          { label: "Pipelines",     value: pipelines, suffix: " active",pct: 48 },
+          { label: "Models Trained",value: models,    suffix: "",       pct: 78 },
+          { label: "API Requests",  value: apiCalls,  suffix: "",       pct: 54 },
+        ].map((m, i) => (
+          <motion.div key={i} whileHover={{ y: -1 }} transition={{ type: "spring", stiffness: 500 }} style={{ ...card, padding: "18px 20px" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>{m.label}</div>
+            <div style={{ fontFamily: C.head, fontSize: "1.65rem", fontWeight: 700, color: C.text, letterSpacing: "-0.03em", marginBottom: 10 }}>{m.value.toLocaleString()}{m.suffix}</div>
+            <Bar pct={m.pct} color={C.textSub} delay={i * 110} />
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* QUICK ACTIONS */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.34 }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
+        {[
+          { label: "Ask AI Analyst",  onClick: () => setActiveView("agent"),     icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> },
+          { label: "Build Pipeline",  onClick: () => setActiveView("pipelines"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg> },
+          { label: "Upload Data",     onClick: () => setActiveView("agent"),     icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> },
+          { label: "Deploy Model",    onClick: undefined,                        icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg> },
+        ].map((a, i) => <ActionCard key={i} label={a.label} icon={a.icon} onClick={a.onClick} />)}
+      </motion.div>
+
+      {/* PIPELINES + ACTIVITY */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 12, marginBottom: 14 }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.42 }} style={card}>
+          <div style={cardHdr}>
+            <div>
+              <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Recent Pipelines</div>
+              <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Last 5 executions</div>
+            </div>
+            <Btn onClick={() => setActiveView("pipelines")}>View all</Btn>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 88px 104px 72px 60px", padding: "8px 18px", gap: 10, borderBottom: `0.5px solid ${C.border}` }}>
+            {["ID", "Pipeline", "Status", "Model", "Score", "Time"].map(h => <span key={h} style={TH}>{h}</span>)}
+          </div>
+          {PIPELINES_DEMO.map(r => <PipelineDemoRow key={r.id} row={r} />)}
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.5 }} style={card}>
+          <div style={cardHdr}>
+            <div>
+              <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Activity</div>
+              <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Recent events</div>
+            </div>
+          </div>
+          {ACTIVITY_DEMO.map((a, i) => <ActivityRow key={i} item={a} last={i === ACTIVITY_DEMO.length - 1} />)}
+        </motion.div>
+      </div>
+
+      {/* MODEL PERF + DATASETS */}
+      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 12, marginBottom: 14 }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.56 }} style={card}>
+          <div style={cardHdr}>
+            <div>
+              <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Model Accuracy</div>
+              <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Top performers</div>
+            </div>
+          </div>
+          <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
+            {MODEL_PERF.map((m, i) => (
+              <div key={i}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                  <span style={{ fontSize: 11, color: C.textSub, fontWeight: 500 }}>{m.name}</span>
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: m.color, fontWeight: 600 }}>{m.score}%</span>
+                </div>
+                <Bar pct={m.score} color={m.color} delay={700 + i * 100} />
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.6 }} style={card}>
+          <div style={cardHdr}>
+            <div>
+              <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Datasets</div>
+              <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Uploaded sources</div>
+            </div>
+            <Btn primary onClick={() => setActiveView("agent")}>+ Upload</Btn>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 92px 52px 82px 76px", padding: "8px 18px", gap: 10, borderBottom: `0.5px solid ${C.border}` }}>
+            {["File", "Rows", "Cols", "Size", "Added"].map(h => <span key={h} style={TH}>{h}</span>)}
+          </div>
+          {DATASETS_DEMO.map((ds, i) => <DatasetDemoRow key={i} ds={ds} last={i === DATASETS_DEMO.length - 1} />)}
+        </motion.div>
+      </div>
+
+      {/* SPARKLINE + STATUS */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.65 }} style={{ ...card, gridColumn: "span 2" }}>
+          <div style={cardHdr}>
+            <div>
+              <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Accuracy over runs</div>
+              <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Churn classifier</div>
+            </div>
+          </div>
+          <div style={{ padding: "12px 16px" }}>
+            <Sparkline />
+            <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+              {[{ l: "Run 1", v: "72.1%" }, { l: "Run 4", v: "83.4%" }, { l: "Latest", v: "91.3%", hi: true }].map(r => (
+                <span key={r.l} style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>
+                  {r.l} <span style={{ color: r.hi ? C.text : C.textSub, fontWeight: r.hi ? 600 : 400 }}>{r.v}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {[
+          { label: "GPU Utilization", value: "73%", pct: 73, color: C.green, sub: "NVIDIA A100 · 40GB VRAM" },
+          { label: "Memory Usage",    value: "58%", pct: 58, color: C.amber, sub: "18.6 GB / 32 GB"        },
+        ].map((s, i) => (
+          <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.7 + i * 0.05 }} style={{ ...card, padding: "16px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.07em" }}>{s.label}</span>
+              <span style={{ fontFamily: C.mono, fontSize: 12, color: s.color, fontWeight: 600 }}>{s.value}</span>
+            </div>
+            <Bar pct={s.pct} color={s.color} delay={900 + i * 80} h={4} />
+            <p style={{ fontSize: 10, color: C.textMute, marginTop: 8 }}>{s.sub}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* UPTIME */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.76 }} style={{ ...card, padding: "16px 18px", marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.07em" }}>System Uptime</span>
+          <span style={{ fontFamily: C.mono, fontSize: 12, color: C.green, fontWeight: 600 }}>99.97%</span>
+        </div>
+        <Bar pct={99.97} color={C.green} delay={950} h={4} />
+        <p style={{ fontSize: 10, color: C.textMute, marginTop: 8 }}>Last incident: 14 days ago</p>
+      </motion.div>
+    </>
+  );
+}
+
+/* ─────────────────────────── MAIN EXPORT ──────────────────────────────── */
 interface Props { user: { firstName: string | null; email: string | undefined } }
 
 export default function DashboardClient({ user }: Props) {
   const [activeView, setActiveView] = useState("overview");
   const [collapsed, setCollapsed] = useState(false);
-  const [chats, setChats] = useState<any[]>([]);
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [editingChatId, setEditingChatId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [collapseChats, setCollapseChats] = useState(false);
-  const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(false);
-  const fetchChats = async () => {
-    try {
-      const res = await fetch("/api/chats");
-      if (res.ok) {
-        const data = await res.json();
-        setChats(data.chats || []);
-      }
-    } catch (e) {
-      console.error("Failed to fetch chats:", e);
-    }
-  };
-
-  useEffect(() => {
-    if (activeView === "agent") fetchChats();
-  }, [activeView]);
-
-  const handleNewChat = () => {
-    setSelectedChatId(null);
-  };
-
-  const handleRenameChat = async (id: string) => {
-    if (!editTitle.trim()) {
-      setEditingChatId(null);
-      return;
-    }
-    try {
-      const res = await fetch(`/api/chats/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editTitle }),
-      });
-      if (res.ok) {
-        setEditingChatId(null);
-        fetchChats();
-      }
-    } catch (e) {
-      console.error("Failed to rename chat:", e);
-    }
-  };
-
-  const handleDeleteChat = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this chat?")) return;
-    try {
-      const res = await fetch(`/api/chats/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        if (selectedChatId === id) setSelectedChatId(null);
-        fetchChats();
-      }
-    } catch (e) {
-      console.error("Failed to delete chat:", e);
-    }
-  };
   const sW = collapsed ? 60 : 228;
 
-  const mRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(mRef, { once: true });
-
-  const datasets = useCountUp(24, 1500, inView);
-  const pipelines = useCountUp(7, 1500, inView);
-  const models = useCountUp(156, 2000, inView);
-  const apiCalls = useCountUp(12847, 2400, inView);
+  const topbarTitle = activeView === "agent" ? "AI Analyst" : activeView === "pipelines" ? "Pipelines" : activeView.charAt(0).toUpperCase() + activeView.slice(1);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans }}>
 
-      {/* SIDEBAR */}
-      <motion.aside
-        initial={{ x: -240 }} animate={{ x: 0 }} transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-        style={{
-          width: sW, minHeight: "100vh", position: "fixed", top: 0, left: 0, zIndex: 50,
-          display: "flex", flexDirection: "column",
-          background: C.sidebar, borderRight: `0.5px solid ${C.border}`,
-          transition: "width 0.26s cubic-bezier(0.25,0.46,0.45,0.94)", overflow: "hidden",
-        }}
-      >
-        <div style={{
-          padding: collapsed ? "18px 0" : "16px 16px",
-          borderBottom: `0.5px solid ${C.border}`,
-          display: "flex", alignItems: "center",
-          justifyContent: collapsed ? "center" : "space-between", minHeight: 54,
-        }}>
-          {!collapsed && (
-            <Link href="/" style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, textDecoration: "none", letterSpacing: "-0.02em" }}>
-              DSAgent
-            </Link>
-          )}
-          {!collapsed && (
-            <span style={{ fontSize: 10, color: C.textMute, background: C.pill, padding: "2px 7px", borderRadius: 4, border: `0.5px solid ${C.border}`, fontFamily: C.mono }}>
-              beta
-            </span>
-          )}
-          <button onClick={() => setCollapsed(c => !c)}
-            style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", padding: 5, borderRadius: 5, display: "flex", marginLeft: collapsed ? 0 : 2 }}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
+      {/* ── SIDEBAR ─────────────────────────────────────────────── */}
+      <motion.aside initial={{ x: -240 }} animate={{ x: 0 }} transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+        style={{ width: sW, minHeight: "100vh", position: "fixed", top: 0, left: 0, zIndex: 50, display: "flex", flexDirection: "column", background: C.sidebar, borderRight: `0.5px solid ${C.border}`, transition: "width 0.26s cubic-bezier(0.25,0.46,0.45,0.94)", overflow: "hidden" }}>
+
+        {/* Logo row */}
+        <div style={{ padding: collapsed ? "18px 0" : "16px 16px", borderBottom: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "space-between", minHeight: 54 }}>
+          {!collapsed && <Link href="/" style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, textDecoration: "none", letterSpacing: "-0.02em" }}>DSAgent</Link>}
+          {!collapsed && <span style={{ fontSize: 10, color: C.textMute, background: C.pill, padding: "2px 7px", borderRadius: 4, border: `0.5px solid ${C.border}`, fontFamily: C.mono }}>beta</span>}
+          <button onClick={() => setCollapsed(c => !c)} style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", padding: 5, borderRadius: 5, display: "flex", marginLeft: collapsed ? 0 : 2 }}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
           </button>
         </div>
 
+        {/* Nav */}
         <nav style={{ flex: 1, padding: "8px 7px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>
           {NAV_GROUPS.map(g => (
             <div key={g.section}>
-              {!collapsed && (
-                <div style={{ fontSize: 9, fontWeight: 600, color: C.textMute, padding: "10px 10px 4px", letterSpacing: "0.09em" }}>
-                  {g.section}
-                </div>
-              )}
-              {g.items.map(item => (
-                <NavBtn key={item.id} item={item} isActive={activeView === item.id} collapsed={collapsed} onClick={() => setActiveView(item.id)} />
-              ))}
+              {!collapsed && <div style={{ fontSize: 9, fontWeight: 600, color: C.textMute, padding: "10px 10px 4px", letterSpacing: "0.09em" }}>{g.section}</div>}
+              {g.items.map(item => <NavBtn key={item.id} item={item} isActive={activeView === item.id} collapsed={collapsed} onClick={() => setActiveView(item.id)} />)}
             </div>
           ))}
         </nav>
@@ -577,28 +801,22 @@ export default function DashboardClient({ user }: Props) {
         </div>
       </motion.aside>
 
-      {/* MAIN */}
+      {/* ── MAIN ────────────────────────────────────────────────── */}
       <div style={{ marginLeft: sW, flex: 1, minHeight: "100vh", transition: "margin-left 0.26s cubic-bezier(0.25,0.46,0.45,0.94)" }}>
 
         {/* TOPBAR */}
-        <header style={{
-          position: "sticky", top: 0, zIndex: 40, height: 54,
-          display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 22px",
-          background: `${C.sidebar}EE`, backdropFilter: "blur(18px)", borderBottom: `0.5px solid ${C.border}`,
-        }}>
+        <header style={{ position: "sticky", top: 0, zIndex: 40, height: 54, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 22px", background: `${C.sidebar}EE`, backdropFilter: "blur(18px)", borderBottom: `0.5px solid ${C.border}` }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, letterSpacing: "-0.01em", fontFamily: C.head }}>
-              {activeView === "agent" ? "AI Analyst" : activeView.charAt(0).toUpperCase() + activeView.slice(1)}
-            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, letterSpacing: "-0.01em", fontFamily: C.head }}>{topbarTitle}</div>
             <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>Last updated: just now</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", borderRadius: 8, background: C.input, border: `0.5px solid ${C.border}`, minWidth: 200 }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.textMute} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.textMute} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input placeholder="Search…" style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontSize: "0.78rem", fontFamily: C.sans, width: "100%" }} />
             </div>
             <button style={{ background: C.input, border: `0.5px solid ${C.border}`, borderRadius: 8, padding: "7px", cursor: "pointer", color: C.textMute, position: "relative", display: "flex" }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /></svg>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
               <span style={{ position: "absolute", top: 4, right: 4, width: 5, height: 5, borderRadius: "50%", background: C.red }} />
             </button>
             <Btn>Export report</Btn>
@@ -610,337 +828,25 @@ export default function DashboardClient({ user }: Props) {
 
         {/* CONTENT */}
         <div style={{ padding: "20px 22px 60px" }}>
-
-          {/* AI ANALYST PAGE */}
-          {activeView === "agent" && (
-            <div
-              style={{
-                height: "calc(100vh - 120px)",
-                display: "grid",
-                gridTemplateColumns: chatSidebarCollapsed ? "42px 1fr" : "280px 1fr",
-                transition: "grid-template-columns 0.25s ease",
-                gap: 20
-              }}
-            >
-
-              {/* CHAT SIDEBAR */}
-              <div
-                style={{
-                  background: C.card,
-                  borderRadius: 16,
-                  border: `1px solid ${C.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden"
-                }}
-              >
-
-                {/* HEADER */}
-                <div
-                  style={{
-                    padding: "16px",
-                    borderBottom: `1px solid ${C.border}`,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-
-                    {/* HORIZONTAL COLLAPSE BUTTON */}
-                    <button
-                      onClick={() => setChatSidebarCollapsed(v => !v)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: C.textMute,
-                        cursor: "pointer",
-                        fontSize: 14
-                      }}
-                    >
-                      {chatSidebarCollapsed ? "▶" : "◀"}
-                    </button>
-
-                    {!chatSidebarCollapsed && (
-                      <h3 style={{ fontSize: 13, fontWeight: 600, color: C.text, margin: 0 }}>
-                        Recent Chats
-                      </h3>
-                    )}
-                  </div>
-
-                  {!chatSidebarCollapsed && (
-                    <button
-                      onClick={handleNewChat}
-                      style={{
-                        background: C.cyan,
-                        color: "black",
-                        border: "none",
-                        borderRadius: 6,
-                        padding: "4px 8px",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: "pointer"
-                      }}
-                    >
-                      + New
-                    </button>
-                  )}
-                </div>
-
-                {/* CHAT LIST */}
-                {!chatSidebarCollapsed && (
-                  <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
-                    {chats.length === 0 ? (
-                      <div
-                        style={{
-                          textAlign: "center",
-                          padding: "40px 20px",
-                          color: C.textMute,
-                          fontSize: 12
-                        }}
-                      >
-                        No chats yet
-                      </div>
-                    ) : (
-                      chats.map((chat) => (
-                        <div
-                          key={chat.id}
-                          onClick={() => setSelectedChatId(chat.id)}
-                          style={{
-                            padding: "12px",
-                            borderRadius: 10,
-                            border:
-                              selectedChatId === chat.id
-                                ? `1px solid ${C.cyan}44`
-                                : "transparent",
-                            background:
-                              selectedChatId === chat.id
-                                ? `${C.cyan}11`
-                                : "transparent",
-                            cursor: "pointer",
-                            marginBottom: 6
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontSize: 12,
-                              fontWeight: 500,
-                              color:
-                                selectedChatId === chat.id
-                                  ? C.cyan
-                                  : C.text,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap"
-                            }}
-                          >
-                            {chat.title}
-                          </div>
-
-                          <div
-                            style={{
-                              fontSize: 10,
-                              color: C.textMute
-                            }}
-                          >
-                            {chat._count.messages} messages
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* CHAT MAIN AREA */}
-              <div
-                style={{
-                  background: C.card,
-                  borderRadius: 16,
-                  border: `1px solid ${C.border}`,
-                  overflow: "hidden"
-                }}
-              >
-                <AgentChat
-                  chatId={selectedChatId}
-                  onChatCreated={(id) => {
-                    setSelectedChatId(id);
-                    fetchChats();
-                  }}
-                />
-              </div>
-
-            </div>
-          )}
-
-          {/* OVERVIEW PAGE */}
-          {activeView !== "agent" && (
-            <>
-              {/* HERO */}
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.18 }}
-                style={{ ...card, height: 184, marginBottom: 18, display: "flex", overflow: "hidden", position: "relative" }}>
-                <div style={{ position: "absolute", inset: 0, opacity: 0.35 }}><BannerScene /></div>
-                <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, ${C.card} 0%, ${C.card}CC 42%, transparent 100%)` }} />
-                <div style={{ position: "relative", zIndex: 2, padding: "26px 28px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                  <p style={{ fontFamily: C.head, fontSize: "1.4rem", fontWeight: 700, color: C.text, marginBottom: 6, letterSpacing: "-0.025em" }}>
-                    {getGreeting()}, {user.firstName ?? "there"}
-                  </p>
-                  <p style={{ fontSize: "0.82rem", color: C.textSub, lineHeight: 1.65, maxWidth: 380 }}>
-                    You have <span style={{ color: C.text, fontWeight: 600 }}>3 pipelines</span> running and{" "}
-                    <span style={{ color: C.green, fontWeight: 600 }}>2 new reports</span> ready for review.
-                  </p>
-                  <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-                    <Btn primary onClick={() => setActiveView("agent")}>Ask AI Analyst</Btn>
-                    <Btn onClick={() => setActiveView("datasets")}>Upload Dataset</Btn>
-                  </div>
-                </div>
+          <AnimatePresence mode="wait">
+            {activeView === "agent" && (
+              <motion.div key="agent" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                <AgentView />
               </motion.div>
+            )}
 
-              {/* METRICS */}
-              <motion.div ref={mRef} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.26 }}
-                style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
-                {[
-                  { label: "Datasets", value: datasets, suffix: "", pct: 65 },
-                  { label: "Pipelines", value: pipelines, suffix: " active", pct: 48 },
-                  { label: "Models Trained", value: models, suffix: "", pct: 78 },
-                  { label: "API Requests", value: apiCalls, suffix: "", pct: 54 },
-                ].map((m, i) => (
-                  <motion.div key={i} whileHover={{ y: -1 }} transition={{ type: "spring", stiffness: 500 }}
-                    style={{ ...card, padding: "18px 20px" }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>{m.label}</div>
-                    <div style={{ fontFamily: C.head, fontSize: "1.65rem", fontWeight: 700, color: C.text, letterSpacing: "-0.03em", marginBottom: 10 }}>
-                      {m.value.toLocaleString()}{m.suffix}
-                    </div>
-                    <Bar pct={m.pct} color={C.textSub} delay={i * 110} />
-                  </motion.div>
-                ))}
+            {activeView === "pipelines" && (
+              <motion.div key="pipelines" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                <PipelineView />
               </motion.div>
+            )}
 
-              {/* QUICK ACTIONS */}
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.34 }}
-                style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
-                {[
-                  { label: "Ask AI Analyst", onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg> },
-                  { label: "Upload Data", onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17,8 12,3 7,8" /><line x1="12" y1="3" x2="12" y2="15" /></svg> },
-                  { label: "Run Pipeline", onClick: undefined, icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12" /></svg> },
-                  { label: "Deploy Model", onClick: undefined, icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2L15 22 11 13 2 9l20-7z" /></svg> },
-                ].map((a, i) => <ActionCard key={i} label={a.label} icon={a.icon} onClick={a.onClick} />)}
+            {activeView !== "agent" && activeView !== "pipelines" && (
+              <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                <OverviewContent user={user} setActiveView={setActiveView} />
               </motion.div>
-
-              {/* PIPELINES + ACTIVITY */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 12, marginBottom: 14 }}>
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.42 }} style={card}>
-                  <div style={cardHdr}>
-                    <div>
-                      <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Recent Pipelines</div>
-                      <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Last 5 executions</div>
-                    </div>
-                    <Btn>View all</Btn>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "72px 1fr 88px 104px 72px 60px", padding: "8px 18px", gap: 10, borderBottom: `0.5px solid ${C.border}` }}>
-                    {["ID", "Pipeline", "Status", "Model", "Score", "Time"].map(h => <span key={h} style={TH}>{h}</span>)}
-                  </div>
-                  {PIPELINES.map(r => <PipelineRow key={r.id} row={r} />)}
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.5 }} style={card}>
-                  <div style={cardHdr}>
-                    <div>
-                      <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Activity</div>
-                      <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Recent events</div>
-                    </div>
-                  </div>
-                  {ACTIVITY.map((a, i) => <ActivityRow key={i} item={a} last={i === ACTIVITY.length - 1} />)}
-                </motion.div>
-              </div>
-
-              {/* MODEL PERF + DATASETS */}
-              <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 12, marginBottom: 14 }}>
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.56 }} style={card}>
-                  <div style={cardHdr}>
-                    <div>
-                      <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Model Accuracy</div>
-                      <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Top performers</div>
-                    </div>
-                  </div>
-                  <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
-                    {MODEL_PERF.map((m, i) => (
-                      <div key={i}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                          <span style={{ fontSize: 11, color: C.textSub, fontWeight: 500 }}>{m.name}</span>
-                          <span style={{ fontFamily: C.mono, fontSize: 11, color: m.color, fontWeight: 600 }}>{m.score}%</span>
-                        </div>
-                        <Bar pct={m.score} color={m.color} delay={700 + i * 100} />
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.6 }} style={card}>
-                  <div style={cardHdr}>
-                    <div>
-                      <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Datasets</div>
-                      <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Uploaded sources</div>
-                    </div>
-                    <Btn primary onClick={() => setActiveView("agent")}>+ Upload</Btn>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 92px 52px 82px 76px", padding: "8px 18px", gap: 10, borderBottom: `0.5px solid ${C.border}` }}>
-                    {["File", "Rows", "Cols", "Size", "Added"].map(h => <span key={h} style={TH}>{h}</span>)}
-                  </div>
-                  {DATASETS.map((ds, i) => <DatasetRow key={i} ds={ds} last={i === DATASETS.length - 1} />)}
-                </motion.div>
-              </div>
-
-              {/* SPARKLINE + STATUS */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.65 }}
-                  style={{ ...card, gridColumn: "span 2" }}>
-                  <div style={cardHdr}>
-                    <div>
-                      <div style={{ fontFamily: C.head, fontSize: "0.86rem", fontWeight: 600, color: C.text }}>Accuracy over runs</div>
-                      <div style={{ fontSize: 10, color: C.textMute, marginTop: 1 }}>Churn classifier</div>
-                    </div>
-                  </div>
-                  <div style={{ padding: "12px 16px" }}>
-                    <Sparkline />
-                    <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-                      {[{ l: "Run 1", v: "72.1%" }, { l: "Run 4", v: "83.4%" }, { l: "Latest", v: "91.3%", hi: true }].map(r => (
-                        <span key={r.l} style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>
-                          {r.l} <span style={{ color: r.hi ? C.text : C.textSub, fontWeight: r.hi ? 600 : 400 }}>{r.v}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-
-                {[
-                  { label: "GPU Utilization", value: "73%", pct: 73, color: C.green, sub: "NVIDIA A100 · 40GB VRAM" },
-                  { label: "Memory Usage", value: "58%", pct: 58, color: C.amber, sub: "18.6 GB / 32 GB" },
-                ].map((s, i) => (
-                  <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.7 + i * 0.05 }}
-                    style={{ ...card, padding: "16px 18px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.07em" }}>{s.label}</span>
-                      <span style={{ fontFamily: C.mono, fontSize: 12, color: s.color, fontWeight: 600 }}>{s.value}</span>
-                    </div>
-                    <Bar pct={s.pct} color={s.color} delay={900 + i * 80} h={4} />
-                    <p style={{ fontSize: 10, color: C.textMute, marginTop: 8 }}>{s.sub}</p>
-                  </motion.div>
-                ))}
-              </div>
-
-              {/* UPTIME */}
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.76 }}
-                style={{ ...card, padding: "16px 18px", marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.07em" }}>System Uptime</span>
-                  <span style={{ fontFamily: C.mono, fontSize: 12, color: C.green, fontWeight: 600 }}>99.97%</span>
-                </div>
-                <Bar pct={99.97} color={C.green} delay={950} h={4} />
-                <p style={{ fontSize: 10, color: C.textMute, marginTop: 8 }}>Last incident: 14 days ago</p>
-              </motion.div>
-            </>
-          )}
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

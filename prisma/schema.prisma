@@ -12,7 +12,15 @@ model User {
   clerkId String @unique
   email   String @unique
   chats   Chat[]
+  pipelines   Pipeline[]
 }
+
+
+
+// ============================================================
+// ALSO ADD THIS RELATION LINE to your existing User model:
+//   pipelines   Pipeline[]
+// ============================================================
 
 model Chat {
   id        String    @id @default(cuid())
@@ -36,4 +44,32 @@ model Message {
   createdAt DateTime @default(now())
 
   @@index([chatId])
+}
+model Pipeline {
+  id          String         @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  sessionId   String?
+  status      String         @default("draft") // draft | running | completed | failed
+  steps       Json           @default("[]")    // PipelineStep[]
+  metadata    Json?          // dataset metadata snapshot
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user        User           @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  runs        PipelineRun[]
+}
+
+model PipelineRun {
+  id          String   @id @default(cuid())
+  pipelineId  String
+  sessionId   String
+  status      String   @default("running") // running | completed | failed
+  stepResults Json     @default("[]")       // result per step
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  error       String?
+
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
 }
