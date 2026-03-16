@@ -6,7 +6,7 @@
     "frontend": "next dev",
     "backend": "cd backend && python -m uvicorn main:app --reload --port 8000",
     "dev": "concurrently -n API,NEXT -c green,blue \"npm run backend\" \"npm run frontend\"",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint"
   },
