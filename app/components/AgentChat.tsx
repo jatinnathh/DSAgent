@@ -60,6 +60,7 @@ export default function AgentChat({ sessionId, chatId: initialChatId, onChatCrea
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const internalChatIdRef = useRef<string | null>(initialChatId || null);
   // Conversation history for multi-turn chat
   const conversationRef = useRef<Array<{ role: string; content: string }>>([]);
 
@@ -69,34 +70,52 @@ export default function AgentChat({ sessionId, chatId: initialChatId, onChatCrea
 
   // ── Handle chatId prop changes ──────────────────────────────────────────
   useEffect(() => {
-    // If we just created this chat, its state is already correct
-    if (currentChatId && initialChatId === currentChatId) {
-      prevChatIdRef.current = initialChatId;
-      return;
+    // Synchronize local ref
+    if (initialChatId) {
+       // If it's the same one we already know, just update ref and return
+       if (internalChatIdRef.current === initialChatId) {
+         prevChatIdRef.current = initialChatId;
+         return;
+       }
+    } else {
+      // If it became null, reset everything
+       if (prevChatIdRef.current) {
+          setCurrentChatId(null);
+          internalChatIdRef.current = null;
+          setMessages([
+            {
+              id: "welcome",
+              role: "agent",
+              content: "Welcome to DSAgent! You can chat with me directly about data science, or upload a CSV to analyze your data.",
+              timestamp: new Date(),
+            },
+          ]);
+          conversationRef.current = [];
+          setCurrentSessionId(null);
+          setDatasetMeta("");
+          setDataPreview(null);
+       }
+       prevChatIdRef.current = initialChatId;
+       return;
     }
 
-    // If initialChatId changed (meaning user selected a different chat)
-    if (initialChatId !== prevChatIdRef.current) {
-      // Reset for new selection
-      setCurrentChatId(initialChatId || null);
-      setMessages([
-        {
-          id: "welcome",
-          role: "agent",
-          content: "Welcome to DSAgent! You can chat with me directly about data science, or upload a CSV to analyze your data.",
-          timestamp: new Date(),
-        },
-      ]);
-      conversationRef.current = [];
-      setCurrentSessionId(null);
-      setDatasetMeta("");
-      setDataPreview(null);
-      
-      if (initialChatId) {
-        loadChat(initialChatId);
-      }
-      prevChatIdRef.current = initialChatId;
-    }
+    // If we've reached here, it's a genuine switch to a DIFFERENT, existing chat
+    setCurrentChatId(initialChatId);
+    internalChatIdRef.current = initialChatId;
+    
+    // Set a placeholder while loading
+    setMessages([
+      {
+        id: "loading-history",
+        role: "agent",
+        content: "Loading conversation...",
+        timestamp: new Date(),
+        isLoading: true
+      },
+    ]);
+    
+    loadChat(initialChatId);
+    prevChatIdRef.current = initialChatId;
   }, [initialChatId]);
 
   const loadChat = async (id: string) => {
@@ -133,15 +152,8 @@ export default function AgentChat({ sessionId, chatId: initialChatId, onChatCrea
         const res = await fetch("/api/agent/tools");
         if (res.ok) {
           const data = await res.json();
-          const tools = (data.tools || []).map((t: any) => ({
-            type: "function",
-            function: {
-              name: t.name,
-              description: t.description,
-              parameters: t.parameters,
-            },
-          }));
-          setToolDefs(tools);
+          // Use the pre-formatted definitions from the backend registry
+          setToolDefs(data.tool_definitions || []);
         }
       } catch (e) {
         console.warn("Could not fetch tools:", e);
@@ -199,6 +211,7 @@ export default function AgentChat({ sessionId, chatId: initialChatId, onChatCrea
       const data = await res.json();
       const id = data.chat?.id;
       if (id) {
+        internalChatIdRef.current = id;
         setCurrentChatId(id);
         onChatCreated?.(id);
         return id;
@@ -275,8 +288,8 @@ export default function AgentChat({ sessionId, chatId: initialChatId, onChatCrea
           tool_calls: toolCalls,
         } as any);
 
-        // Execute each tool call
-        for (const tc of toolCalls) {
+        // Execute all tool calls in parallel for faster performance
+        await Promise.all(toolCalls.map(async (tc: any) => {
           const toolName = tc.function?.name;
           let toolArgs: any = {};
           try {
@@ -285,7 +298,6 @@ export default function AgentChat({ sessionId, chatId: initialChatId, onChatCrea
             toolArgs = {};
           }
 
-          // Inject session_id if not present
           if (currentSessionId && !toolArgs.session_id) {
             toolArgs.session_id = currentSessionId;
           }
@@ -300,21 +312,18 @@ export default function AgentChat({ sessionId, chatId: initialChatId, onChatCrea
             });
             const toolResult = await toolRes.json();
 
-            // Check if result contains a chart image
             const chartBase64 = toolResult?.output?.chart_base64 || toolResult?.chart_base64;
             if (chartBase64) {
-              // Show chart inline immediately
+              const imgSrc = chartBase64.startsWith("data:") ? chartBase64 : `data:image/png;base64,${chartBase64}`;
               removeLoading();
-              addMessage("agent", `📊 **${toolName.replace(/_/g, " ")}:**\n\ndata:image/png;base64,${chartBase64}`);
+              addMessage("agent", `📊 **${toolName.replace(/_/g, " ")}:**\n\n${imgSrc}`);
               addLoadingMessage();
             }
 
-            // Strip base64 images from tool result before sending to LLM (save tokens)
             const cleanResult = JSON.parse(JSON.stringify(toolResult));
             if (cleanResult?.output?.chart_base64) delete cleanResult.output.chart_base64;
             if (cleanResult?.chart_base64) delete cleanResult.chart_base64;
 
-            // Add tool result to conversation
             conversationRef.current.push({
               role: "tool",
               tool_call_id: tc.id,
@@ -327,7 +336,7 @@ export default function AgentChat({ sessionId, chatId: initialChatId, onChatCrea
               content: JSON.stringify({ error: toolErr.message }),
             } as any);
           }
-        }
+        }));
 
         setToolStatus(null);
 
@@ -483,22 +492,70 @@ export default function AgentChat({ sessionId, chatId: initialChatId, onChatCrea
     if (!text || typeof text !== "string") return <span style={{ color: C.textMute }}>—</span>;
 
     return text.split("\n").map((line, i) => {
-      // Base64 image detection
-      const b64Match = line.match(/(!\[.*?\]\()?(data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+)\)?/);
+      // Base64 image detection - more specific to our tool output
+      const b64Match = line.match(/(data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+)/);
       if (b64Match) {
-        const imgSrc = b64Match[2];
+        const imgSrc = b64Match[1];
         return (
-          <div key={i} style={{ margin: "8px 0" }}>
+          <div key={i} style={{ 
+            margin: "12px 0",
+            borderRadius: 10,
+            overflow: "hidden",
+            border: `1px solid ${C.border}`,
+            background: "#1A1A1A", 
+            position: "relative",
+            minHeight: 160,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center"
+          }}>
             <img
               src={imgSrc}
-              alt="Chart"
+              alt="Generated Chart"
+              loading="lazy"
               style={{
                 maxWidth: "100%",
-                borderRadius: 8,
-                border: `1px solid ${C.border}`,
-                background: "#fff",
+                maxHeight: 500, // Prevent giant images
+                height: "auto",
+                display: "block",
+                transition: "opacity 0.3s ease",
+              }}
+              onLoad={(e) => {
+                (e.target as any).parentElement.style.background = "transparent";
+                (e.target as any).parentElement.style.minHeight = "auto";
+                (e.target as any).style.opacity = "1";
+              }}
+              onError={(e) => {
+                (e.target as any).style.display = "none";
+                (e.target as any).parentElement.innerHTML = `<div style="padding:20px;color:${C.red};font-size:11px">⚠️ Image failed to load</div>`;
               }}
             />
+            <div style={{
+              position: "absolute",
+              bottom: 8,
+              right: 8,
+              display: "flex",
+              gap: 8
+            }}>
+               <a 
+                 href={imgSrc} 
+                 target="_blank" 
+                 rel="noreferrer"
+                 style={{
+                   fontSize: 10,
+                   padding: "4px 8px",
+                   background: "rgba(0,0,0,0.6)",
+                   color: "#fff",
+                   borderRadius: 4,
+                   textDecoration: "none",
+                   backdropFilter: "blur(4px)",
+                   border: "1px solid rgba(255,255,255,0.1)"
+                 }}
+               >
+                 View Full Size
+               </a>
+            </div>
           </div>
         );
       }

@@ -19,7 +19,7 @@ os.makedirs(CHARTS_DIR, exist_ok=True)
 def _save_plot_as_base64() -> str:
     """Save current matplotlib plot as base64 string"""
     buffer = io.BytesIO()
-    plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
+    plt.savefig(buffer, format='png', dpi=80, bbox_inches='tight')
     buffer.seek(0)
     image_base64 = base64.b64encode(buffer.getvalue()).decode()
     plt.close()
@@ -60,7 +60,7 @@ def create_histogram(
         raise ValueError(f"Column '{column}' must be numeric")
     
     # Create histogram
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8, 5), layout='constrained')
     data = df[column].dropna()
     
     plt.hist(data, bins=bins, alpha=0.7, color='skyblue', edgecolor='black')
@@ -134,7 +134,7 @@ def create_bar_chart(
     value_counts = df[column].value_counts().head(top_n)
     
     # Create bar chart
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(9, 5), layout='constrained')
     bars = plt.bar(range(len(value_counts)), value_counts.values, color='lightcoral')
     
     plt.title(title or f'Top {top_n} Values in {column}')
@@ -211,7 +211,7 @@ def create_scatter_plot(
         raise ValueError(f"Y column '{y_column}' must be numeric")
     
     # Create scatter plot
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(8, 6), layout='constrained')
     
     if color_column and color_column in df.columns:
         # Color by category
@@ -301,7 +301,7 @@ def create_correlation_heatmap(
     corr_matrix = numeric_df.corr(method=method)
     
     # Create heatmap
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(8, 7), layout='constrained')
     mask = np.triu(np.ones_like(corr_matrix, dtype=bool))  # Hide upper triangle
     
     sns.heatmap(corr_matrix, mask=mask, annot=True, cmap='coolwarm', center=0,
@@ -366,7 +366,7 @@ def create_box_plot(
     if not pd.api.types.is_numeric_dtype(df[column]):
         raise ValueError(f"Column '{column}' must be numeric")
     
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8, 5), layout='constrained')
     
     if group_by and group_by in df.columns:
         # Grouped box plot

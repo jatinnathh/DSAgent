@@ -28,23 +28,7 @@ export default function BackButton() {
         </span>
       </Link>
 
-      <Link
-        href="/agent"
-        className="
-          group flex items-center justify-center
-          px-6 py-3 rounded-full
-          min-w-[120px]
-          bg-cyan-500/20 backdrop-blur-xl
-          border border-cyan-400/30
-          shadow-[0_4px_24px_-1px_rgba(0,212,255,0.15)]
-          transition-all duration-300 ease-out
-          hover:bg-cyan-500/30 hover:shadow-[0_8px_32px_-1px_rgba(0,212,255,0.25)]
-        "
-      >
-        <span className="text-sm font-medium text-white tracking-wide">
-          🤖 DSAgent
-        </span>
-      </Link>
+      
     </motion.div>
   );
 }
