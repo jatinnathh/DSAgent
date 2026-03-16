@@ -174,7 +174,53 @@ async def get_session_overview(session_id: str):
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting overview: {str(e)}")
+"""
+ADD this endpoint to backend/main.py, after the existing /session/{session_id}/overview endpoint.
+"""
 
+@app.get("/session/{session_id}/metadata")
+async def get_session_metadata(session_id: str):
+    """
+    Get metadata for a previously uploaded session.
+    Used by the frontend to restore dataset context when reloading a chat.
+    """
+    try:
+        from tools.cleaning import get_dataframe
+        import io
+        
+        df = get_dataframe(session_id)  # will load from disk if needed
+        
+        # Reconstruct metadata
+        numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
+        categorical_columns = df.select_dtypes(include=['object', 'category']).columns.tolist()
+        
+        meta_summary = (
+            f"Filename: session_{session_id}.csv\n"
+            f"Rows: {len(df):,}, Columns: {len(df.columns)}\n"
+            f"Size: {round(df.memory_usage(deep=True).sum() / (1024*1024), 2)} MB\n"
+            f"Numeric columns: {', '.join(numeric_columns) or 'none'}\n"
+            f"Categorical columns: {', '.join(categorical_columns) or 'none'}"
+        )
+        
+        return {
+            "session_id": session_id,
+            "found": True,
+            "metadata": {
+                "filename": f"session_{session_id}.csv",
+                "row_count": len(df),
+                "column_count": len(df.columns),
+                "numeric_columns": numeric_columns,
+                "categorical_columns": categorical_columns,
+                "memory_usage_mb": round(df.memory_usage(deep=True).sum() / (1024*1024), 2),
+                "columns": [{"name": c} for c in df.columns],
+                "sample_rows": df.head(3).fillna("").to_dict("records"),
+            },
+            "meta_summary": meta_summary,
+        }
+    except ValueError as e:
+        return {"session_id": session_id, "found": False, "error": str(e)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 @app.get("/session/{session_id}/quality")
 async def get_data_quality(session_id: str):
     """

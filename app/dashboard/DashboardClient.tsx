@@ -1,3 +1,4 @@
+// app\dashboard\DashboardClient.tsx
 "use client";
 
 import { useRef, useMemo, useState, useEffect } from "react";
@@ -11,35 +12,35 @@ import AgentChat from "@/app/components/AgentChat";
 
 /* ─────────────────────────── DESIGN TOKENS ────────────────────────────── */
 const C = {
-  bg:          "#0E0E0E",
-  sidebar:     "#111111",
-  card:        "#141414",
-  cardHover:   "#181818",
-  input:       "#1A1A1A",
-  pill:        "#1F1F1F",
-  border:      "rgba(255,255,255,0.06)",
-  borderMd:    "rgba(255,255,255,0.10)",
-  borderHi:    "rgba(255,255,255,0.16)",
-  text:        "#F2F2F2",
-  textSub:     "#8C8C8C",
-  textMute:    "#4A4A4A",
-  white:       "#FFFFFF",
-  whiteDim:    "rgba(255,255,255,0.08)",
-  green:       "#3FB950",
-  greenBg:     "rgba(63,185,80,0.1)",
+  bg: "#0E0E0E",
+  sidebar: "#111111",
+  card: "#141414",
+  cardHover: "#181818",
+  input: "#1A1A1A",
+  pill: "#1F1F1F",
+  border: "rgba(255,255,255,0.06)",
+  borderMd: "rgba(255,255,255,0.10)",
+  borderHi: "rgba(255,255,255,0.16)",
+  text: "#F2F2F2",
+  textSub: "#8C8C8C",
+  textMute: "#4A4A4A",
+  white: "#FFFFFF",
+  whiteDim: "rgba(255,255,255,0.08)",
+  green: "#3FB950",
+  greenBg: "rgba(63,185,80,0.1)",
   greenBorder: "rgba(63,185,80,0.22)",
-  amber:       "#D29922",
-  amberBg:     "rgba(210,153,34,0.1)",
+  amber: "#D29922",
+  amberBg: "rgba(210,153,34,0.1)",
   amberBorder: "rgba(210,153,34,0.22)",
-  red:         "#F85149",
-  redBg:       "rgba(248,81,73,0.1)",
-  redBorder:   "rgba(248,81,73,0.22)",
-  cyan:        "#00D4FF",
-  purple:      "#8B5CF6",
-  pink:        "#EC4899",
-  mono:        "'JetBrains Mono', 'Fira Code', monospace",
-  sans:        "'Inter', system-ui, sans-serif",
-  head:        "'Sora', 'Inter', sans-serif",
+  red: "#F85149",
+  redBg: "rgba(248,81,73,0.1)",
+  redBorder: "rgba(248,81,73,0.22)",
+  cyan: "#00D4FF",
+  purple: "#8B5CF6",
+  pink: "#EC4899",
+  mono: "'JetBrains Mono', 'Fira Code', monospace",
+  sans: "'Inter', system-ui, sans-serif",
+  head: "'Sora', 'Inter', sans-serif",
 };
 
 /* ─────────────────────────── 3-D BANNER ───────────────────────────────── */
@@ -49,7 +50,7 @@ function BannerParticles() {
   const positions = useMemo(() => {
     const p = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      p[i * 3]     = (Math.random() - 0.5) * 22;
+      p[i * 3] = (Math.random() - 0.5) * 22;
       p[i * 3 + 1] = (Math.random() - 0.5) * 9;
       p[i * 3 + 2] = (Math.random() - 0.5) * 6;
     }
@@ -73,13 +74,13 @@ function BannerParticles() {
 
 function BannerOrb() {
   const mesh = useRef<THREE.Mesh>(null);
-  const r1   = useRef<THREE.Mesh>(null);
-  const r2   = useRef<THREE.Mesh>(null);
+  const r1 = useRef<THREE.Mesh>(null);
+  const r2 = useRef<THREE.Mesh>(null);
   useFrame((s) => {
     const t = s.clock.elapsedTime;
     if (mesh.current) { mesh.current.rotation.y = t * 0.2; mesh.current.rotation.x = t * 0.09; }
-    if (r1.current)   { r1.current.rotation.x = t * 0.36; r1.current.rotation.z = t * 0.17; }
-    if (r2.current)   { r2.current.rotation.x = t * -0.2; r2.current.rotation.y = t * 0.3; }
+    if (r1.current) { r1.current.rotation.x = t * 0.36; r1.current.rotation.z = t * 0.17; }
+    if (r2.current) { r2.current.rotation.x = t * -0.2; r2.current.rotation.y = t * 0.3; }
   });
   return (
     <Float speed={1.1} floatIntensity={0.28}>
@@ -130,72 +131,72 @@ const NAV_GROUPS = [
   {
     section: "WORKSPACE",
     items: [
-      { id: "overview",   label: "Overview",       badge: null },
-      { id: "agent",      label: "AI Analyst",     badge: "NEW" },
-      { id: "pipelines",  label: "Pipelines",      badge: "3"  },
-      { id: "datasets",   label: "Datasets",       badge: "12" },
-      { id: "models",     label: "Models",         badge: null },
+      { id: "overview", label: "Overview", badge: null },
+      { id: "agent", label: "AI Analyst", badge: "NEW" },
+      { id: "pipelines", label: "Pipelines", badge: "3" },
+      { id: "datasets", label: "Datasets", badge: "12" },
+      { id: "models", label: "Models", badge: null },
     ],
   },
   {
     section: "INTELLIGENCE",
     items: [
       { id: "explainability", label: "Explainability", badge: null },
-      { id: "reports",        label: "Reports",        badge: null },
+      { id: "reports", label: "Reports", badge: null },
     ],
   },
   {
     section: "DEPLOY",
     items: [
-      { id: "endpoints",  label: "API Endpoints", badge: null },
-      { id: "monitoring", label: "Monitoring",    badge: null },
+      { id: "endpoints", label: "API Endpoints", badge: null },
+      { id: "monitoring", label: "Monitoring", badge: null },
     ],
   },
 ];
 
 const PIPELINES = [
-  { id: "PL-2847", name: "Customer Churn Analysis",   status: "completed" as const, model: "XGBoost",       score: "94.2%", time: "12m ago" },
-  { id: "PL-2846", name: "Revenue Forecasting Q1",    status: "running"   as const, model: "LSTM",          score: "—",     time: "34m ago" },
-  { id: "PL-2845", name: "Fraud Detection v3",        status: "completed" as const, model: "Random Forest", score: "97.8%", time: "2h ago"  },
-  { id: "PL-2844", name: "Sentiment Classification",  status: "failed"    as const, model: "DistilBERT",    score: "—",     time: "5h ago"  },
-  { id: "PL-2843", name: "Supply Chain Optimization", status: "completed" as const, model: "LightGBM",      score: "89.1%", time: "1d ago"  },
+  { id: "PL-2847", name: "Customer Churn Analysis", status: "completed" as const, model: "XGBoost", score: "94.2%", time: "12m ago" },
+  { id: "PL-2846", name: "Revenue Forecasting Q1", status: "running" as const, model: "LSTM", score: "—", time: "34m ago" },
+  { id: "PL-2845", name: "Fraud Detection v3", status: "completed" as const, model: "Random Forest", score: "97.8%", time: "2h ago" },
+  { id: "PL-2844", name: "Sentiment Classification", status: "failed" as const, model: "DistilBERT", score: "—", time: "5h ago" },
+  { id: "PL-2843", name: "Supply Chain Optimization", status: "completed" as const, model: "LightGBM", score: "89.1%", time: "1d ago" },
 ];
 
 const DATASETS = [
-  { name: "customer_churn.csv",   rows: "45,231",    cols: 23, size: "12.4 MB", date: "Today"      },
-  { name: "sales_2024.csv",       rows: "128,400",   cols: 31, size: "34.7 MB", date: "Yesterday"  },
-  { name: "transactions.parquet", rows: "1,240,000", cols: 18, size: "156 MB",  date: "2 days ago" },
-  { name: "reviews.json",         rows: "8,920",     cols: 6,  size: "4.2 MB",  date: "3 days ago" },
+  { name: "customer_churn.csv", rows: "45,231", cols: 23, size: "12.4 MB", date: "Today" },
+  { name: "sales_2024.csv", rows: "128,400", cols: 31, size: "34.7 MB", date: "Yesterday" },
+  { name: "transactions.parquet", rows: "1,240,000", cols: 18, size: "156 MB", date: "2 days ago" },
+  { name: "reviews.json", rows: "8,920", cols: 6, size: "4.2 MB", date: "3 days ago" },
 ];
 
 const ACTIVITY = [
-  { type: "success", text: "Pipeline PL-2847 completed — 94.2% accuracy",  time: "12m ago" },
-  { type: "deploy",  text: "XGBoost model deployed to endpoint /v2/churn",  time: "28m ago" },
-  { type: "upload",  text: "customer_churn.csv uploaded (45,231 rows)",     time: "1h ago"  },
-  { type: "warning", text: "Data drift detected on Revenue Forecast model", time: "3h ago"  },
-  { type: "success", text: "Pipeline PL-2845 completed — 97.8% accuracy",  time: "5h ago"  },
-  { type: "report",  text: "Q4 Comprehensive Analysis report generated",    time: "1d ago"  },
+  { type: "success", text: "Pipeline PL-2847 completed — 94.2% accuracy", time: "12m ago" },
+  { type: "deploy", text: "XGBoost model deployed to endpoint /v2/churn", time: "28m ago" },
+  { type: "upload", text: "customer_churn.csv uploaded (45,231 rows)", time: "1h ago" },
+  { type: "warning", text: "Data drift detected on Revenue Forecast model", time: "3h ago" },
+  { type: "success", text: "Pipeline PL-2845 completed — 97.8% accuracy", time: "5h ago" },
+  { type: "report", text: "Q4 Comprehensive Analysis report generated", time: "1d ago" },
 ];
 
 const MODEL_PERF = [
-  { name: "Random Forest — Fraud Detection", score: 97.8, color: C.green  },
-  { name: "XGBoost — Churn Prediction",      score: 94.2, color: C.text   },
-  { name: "LightGBM — Supply Chain",         score: 89.1, color: C.purple },
-  { name: "LSTM — Revenue Forecast",         score: 86.4, color: C.amber  },
+  { name: "Random Forest — Fraud Detection", score: 97.8, color: C.green },
+  { name: "XGBoost — Churn Prediction", score: 94.2, color: C.text },
+  { name: "LightGBM — Supply Chain", score: 89.1, color: C.purple },
+  { name: "LSTM — Revenue Forecast", score: 86.4, color: C.amber },
 ];
 
 const STATUS = {
-  completed: { label: "Done",    color: C.green, bg: C.greenBg,  border: C.greenBorder  },
-  running:   { label: "Running", color: C.text,  bg: C.whiteDim, border: C.borderMd     },
-  failed:    { label: "Error",   color: C.red,   bg: C.redBg,    border: C.redBorder    },
+  completed: { label: "Done", color: C.green, bg: C.greenBg, border: C.greenBorder },
+  running: { label: "Running", color: C.text, bg: C.whiteDim, border: C.borderMd },
+  failed: { label: "Error", color: C.red, bg: C.redBg, border: C.redBorder },
 } as const;
 
 const ACT_DOT: Record<string, string> = {
   success: C.green,
-  deploy:  C.purple,
-  upload:  C.textSub,
+  deploy: C.purple,
+  upload: C.textSub,
   warning: C.amber,
-  report:  C.pink,
+  report: C.pink,
 };
 
 const SPARKLINE = [80, 72, 60, 50, 42, 35, 28, 22];
@@ -229,10 +230,10 @@ function RunningBar() {
 function Sparkline() {
   const pts = SPARKLINE;
   const W = 300, H = 96, pL = 26, pR = 8, pT = 8, pB = 14;
-  const xs  = pts.map((_, i) => pL + i * ((W - pL - pR) / (pts.length - 1)));
+  const xs = pts.map((_, i) => pL + i * ((W - pL - pR) / (pts.length - 1)));
   const toY = (v: number) => pT + ((100 - v) / 100) * (H - pT - pB);
   const line = pts.map((v, i) => `${i === 0 ? "M" : "L"}${xs[i].toFixed(1)},${toY(v).toFixed(1)}`).join(" ");
-  const area = `${line} L${xs[pts.length-1]},${H-pB} L${xs[0]},${H-pB}Z`;
+  const area = `${line} L${xs[pts.length - 1]},${H - pB} L${xs[0]},${H - pB}Z`;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 96 }} preserveAspectRatio="none">
       <defs>
@@ -246,7 +247,7 @@ function Sparkline() {
       <path d={area} fill="url(#sg)" />
       <path d={line} fill="none" stroke={C.text} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
       {pts.map((v, i) => <circle key={i} cx={xs[i]} cy={toY(v)} r={i === pts.length - 1 ? 3 : 1.5} fill={C.text} opacity={i === pts.length - 1 ? 1 : 0.3} />)}
-      <text x={xs[pts.length-1] + 5} y={toY(pts[pts.length-1]) - 3} fontSize={9} fill={C.text} fontFamily={C.mono} fontWeight={600}>91.3%</text>
+      <text x={xs[pts.length - 1] + 5} y={toY(pts[pts.length - 1]) - 3} fontSize={9} fill={C.text} fontFamily={C.mono} fontWeight={600}>91.3%</text>
     </svg>
   );
 }
@@ -269,16 +270,16 @@ function Pill({ status }: { status: keyof typeof STATUS }) {
 function NI({ id }: { id: string }) {
   const p = { width: 15, height: 15, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const icons: Record<string, React.ReactNode> = {
-    overview:       <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>,
-    pipelines:      <svg {...p}><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>,
-    datasets:       <svg {...p}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg>,
-    models:         <svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
-    agent:          <svg {...p}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>,
-    explainability: <svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-    reports:        <svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-    endpoints:      <svg {...p}><rect x="2" y="7" width="12" height="7" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>,
-    monitoring:     <svg {...p}><circle cx="12" cy="12" r="5"/><path d="M12 7v5l2 2"/></svg>,
-    settings:       <svg {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
+    overview: <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>,
+    pipelines: <svg {...p}><polyline points="22,12 18,12 15,21 9,3 6,12 2,12" /></svg>,
+    datasets: <svg {...p}><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" /></svg>,
+    models: <svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>,
+    agent: <svg {...p}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>,
+    explainability: <svg {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
+    reports: <svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14,2 14,8 20,8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>,
+    endpoints: <svg {...p}><rect x="2" y="7" width="12" height="7" rx="1" /><path d="M5 7V5a3 3 0 016 0v2" /></svg>,
+    monitoring: <svg {...p}><circle cx="12" cy="12" r="5" /><path d="M12 7v5l2 2" /></svg>,
+    settings: <svg {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /></svg>,
   };
   return <>{icons[id] ?? null}</>;
 }
@@ -403,7 +404,7 @@ function DatasetRow({ ds, last }: { ds: typeof DATASETS[number]; last: boolean }
     >
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
         <div style={{ width: 24, height: 24, borderRadius: 5, background: C.pill, border: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={C.textSub} strokeWidth={1.5} strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={C.textSub} strokeWidth={1.5} strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14,2 14,8 20,8" /></svg>
         </div>
         <span style={{ fontFamily: C.mono, fontSize: 11, color: C.textSub }}>{ds.name}</span>
       </div>
@@ -439,12 +440,13 @@ interface Props { user: { firstName: string | null; email: string | undefined } 
 
 export default function DashboardClient({ user }: Props) {
   const [activeView, setActiveView] = useState("overview");
-  const [collapsed, setCollapsed]   = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [chats, setChats] = useState<any[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
-
+  const [collapseChats, setCollapseChats] = useState(false);
+  const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(false);
   const fetchChats = async () => {
     try {
       const res = await fetch("/api/chats");
@@ -500,13 +502,13 @@ export default function DashboardClient({ user }: Props) {
   };
   const sW = collapsed ? 60 : 228;
 
-  const mRef   = useRef<HTMLDivElement>(null);
+  const mRef = useRef<HTMLDivElement>(null);
   const inView = useInView(mRef, { once: true });
 
-  const datasets  = useCountUp(24,    1500, inView);
-  const pipelines = useCountUp(7,     1500, inView);
-  const models    = useCountUp(156,   2000, inView);
-  const apiCalls  = useCountUp(12847, 2400, inView);
+  const datasets = useCountUp(24, 1500, inView);
+  const pipelines = useCountUp(7, 1500, inView);
+  const models = useCountUp(156, 2000, inView);
+  const apiCalls = useCountUp(12847, 2400, inView);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans }}>
@@ -592,11 +594,11 @@ export default function DashboardClient({ user }: Props) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", borderRadius: 8, background: C.input, border: `0.5px solid ${C.border}`, minWidth: 200 }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.textMute} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.textMute} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
               <input placeholder="Search…" style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontSize: "0.78rem", fontFamily: C.sans, width: "100%" }} />
             </div>
             <button style={{ background: C.input, border: `0.5px solid ${C.border}`, borderRadius: 8, padding: "7px", cursor: "pointer", color: C.textMute, position: "relative", display: "flex" }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /></svg>
               <span style={{ position: "absolute", top: 4, right: 4, width: 5, height: 5, borderRadius: "50%", background: C.red }} />
             </button>
             <Btn>Export report</Btn>
@@ -611,159 +613,165 @@ export default function DashboardClient({ user }: Props) {
 
           {/* AI ANALYST PAGE */}
           {activeView === "agent" && (
-                  <div style={{ height: "calc(100vh - 120px)", display: "grid", gridTemplateColumns: "280px 1fr", gap: 20 }}>
-                    {/* Chat Sidebar */}
-                    <div style={{ 
-                      background: C.card, 
-                      borderRadius: 16, 
-                      border: `1px solid ${C.border}`,
-                      display: "flex",
-                      flexDirection: "column",
-                      overflow: "hidden"
-                    }}>
-                      <div style={{ padding: "16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <h3 style={{ fontSize: 13, fontWeight: 600, color: C.text, margin: 0 }}>Recent Chats</h3>
-                        <button 
-                          onClick={handleNewChat}
+            <div
+              style={{
+                height: "calc(100vh - 120px)",
+                display: "grid",
+                gridTemplateColumns: chatSidebarCollapsed ? "42px 1fr" : "280px 1fr",
+                transition: "grid-template-columns 0.25s ease",
+                gap: 20
+              }}
+            >
+
+              {/* CHAT SIDEBAR */}
+              <div
+                style={{
+                  background: C.card,
+                  borderRadius: 16,
+                  border: `1px solid ${C.border}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden"
+                }}
+              >
+
+                {/* HEADER */}
+                <div
+                  style={{
+                    padding: "16px",
+                    borderBottom: `1px solid ${C.border}`,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+                    {/* HORIZONTAL COLLAPSE BUTTON */}
+                    <button
+                      onClick={() => setChatSidebarCollapsed(v => !v)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: C.textMute,
+                        cursor: "pointer",
+                        fontSize: 14
+                      }}
+                    >
+                      {chatSidebarCollapsed ? "▶" : "◀"}
+                    </button>
+
+                    {!chatSidebarCollapsed && (
+                      <h3 style={{ fontSize: 13, fontWeight: 600, color: C.text, margin: 0 }}>
+                        Recent Chats
+                      </h3>
+                    )}
+                  </div>
+
+                  {!chatSidebarCollapsed && (
+                    <button
+                      onClick={handleNewChat}
+                      style={{
+                        background: C.cyan,
+                        color: "black",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "4px 8px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: "pointer"
+                      }}
+                    >
+                      + New
+                    </button>
+                  )}
+                </div>
+
+                {/* CHAT LIST */}
+                {!chatSidebarCollapsed && (
+                  <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+                    {chats.length === 0 ? (
+                      <div
+                        style={{
+                          textAlign: "center",
+                          padding: "40px 20px",
+                          color: C.textMute,
+                          fontSize: 12
+                        }}
+                      >
+                        No chats yet
+                      </div>
+                    ) : (
+                      chats.map((chat) => (
+                        <div
+                          key={chat.id}
+                          onClick={() => setSelectedChatId(chat.id)}
                           style={{
-                            background: C.cyan,
-                            color: "black",
-                            border: "none",
-                            borderRadius: 6,
-                            padding: "4px 8px",
-                            fontSize: 11,
-                            fontWeight: 700,
+                            padding: "12px",
+                            borderRadius: 10,
+                            border:
+                              selectedChatId === chat.id
+                                ? `1px solid ${C.cyan}44`
+                                : "transparent",
+                            background:
+                              selectedChatId === chat.id
+                                ? `${C.cyan}11`
+                                : "transparent",
                             cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4
+                            marginBottom: 6
                           }}
                         >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                          New
-                        </button>
-                      </div>
-                      <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
-                        {chats.length === 0 ? (
-                          <div style={{ textAlign: "center", padding: "40px 20px", color: C.textMute, fontSize: 12 }}>
-                            No chats yet. Start a new analysis!
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 500,
+                              color:
+                                selectedChatId === chat.id
+                                  ? C.cyan
+                                  : C.text,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap"
+                            }}
+                          >
+                            {chat.title}
                           </div>
-                        ) : (
-                          chats.map((chat) => (
-                            <div
-                              key={chat.id}
-                              onClick={() => {
-                                if (editingChatId !== chat.id) {
-                                  setSelectedChatId(chat.id);
-                                }
-                              }}
-                              style={{
-                                padding: "12px",
-                                borderRadius: 10,
-                                border: `1px solid ${selectedChatId === chat.id ? C.cyan + "44" : "transparent"}`,
-                                background: selectedChatId === chat.id ? C.cyan + "11" : "transparent",
-                                cursor: "pointer",
-                                transition: "all 0.2s",
-                                marginBottom: 4,
-                                position: "relative",
-                              }}
-                              onMouseEnter={(e) => (e.currentTarget.style.background = selectedChatId === chat.id ? C.cyan + "1a" : C.border)}
-                              onMouseLeave={(e) => (e.currentTarget.style.background = selectedChatId === chat.id ? C.cyan + "11" : "transparent")}
-                            >
-                              {editingChatId === chat.id ? (
-                                <input
-                                  autoFocus
-                                  value={editTitle}
-                                  onChange={(e) => setEditTitle(e.target.value)}
-                                  onBlur={() => handleRenameChat(chat.id)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleRenameChat(chat.id);
-                                    if (e.key === "Escape") setEditingChatId(null);
-                                  }}
-                                  style={{
-                                    width: "100%",
-                                    background: C.bg,
-                                    border: `1px solid ${C.cyan}`,
-                                    borderRadius: 4,
-                                    color: C.text,
-                                    fontSize: 12,
-                                    padding: "2px 4px",
-                                    marginBottom: 4,
-                                    outline: "none"
-                                  }}
-                                />
-                              ) : (
-                                <div 
-                                  onDoubleClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingChatId(chat.id);
-                                    setEditTitle(chat.title);
-                                  }}
-                                  style={{ fontSize: 12, fontWeight: 500, color: selectedChatId === chat.id ? C.cyan : C.text, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 40 }}
-                                >
-                                  {chat.title}
-                                </div>
-                              )}
-                              <div style={{ fontSize: 10, color: C.textMute }}>
-                                {new Date(chat.updatedAt).toLocaleDateString()} • {chat._count.messages} messages
-                              </div>
-                              <div style={{ position: "absolute", top: 12, right: 8, display: "flex", gap: 4 }}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingChatId(chat.id);
-                                    setEditTitle(chat.title);
-                                  }}
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    color: C.textMute,
-                                    cursor: "pointer",
-                                    padding: 4,
-                                    borderRadius: 4,
-                                    opacity: 0.6
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.color = C.cyan)}
-                                  onMouseLeave={(e) => (e.currentTarget.style.color = C.textMute)}
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                </button>
-                                <button
-                                  onClick={(e) => handleDeleteChat(chat.id, e)}
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    color: C.textMute,
-                                    cursor: "pointer",
-                                    padding: 4,
-                                    borderRadius: 4,
-                                    opacity: 0.6
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.color = C.red)}
-                                  onMouseLeave={(e) => (e.currentTarget.style.color = C.textMute)}
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path></svg>
-                                </button>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
 
-                    {/* Chat Main Area */}
-                    <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-                      <AgentChat 
-                        chatId={selectedChatId} 
-                        sessionId={activeView === "agent" ? undefined : undefined} // placeholder
-                        onChatCreated={(id) => {
-                          setSelectedChatId(id);
-                          fetchChats();
-                        }}
-                      />
-                    </div>
+                          <div
+                            style={{
+                              fontSize: 10,
+                              color: C.textMute
+                            }}
+                          >
+                            {chat._count.messages} messages
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
+              </div>
+
+              {/* CHAT MAIN AREA */}
+              <div
+                style={{
+                  background: C.card,
+                  borderRadius: 16,
+                  border: `1px solid ${C.border}`,
+                  overflow: "hidden"
+                }}
+              >
+                <AgentChat
+                  chatId={selectedChatId}
+                  onChatCreated={(id) => {
+                    setSelectedChatId(id);
+                    fetchChats();
+                  }}
+                />
+              </div>
+
+            </div>
+          )}
 
           {/* OVERVIEW PAGE */}
           {activeView !== "agent" && (
@@ -792,10 +800,10 @@ export default function DashboardClient({ user }: Props) {
               <motion.div ref={mRef} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.26 }}
                 style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
                 {[
-                  { label: "Datasets",       value: datasets,  suffix: "",        pct: 65 },
-                  { label: "Pipelines",      value: pipelines, suffix: " active", pct: 48 },
-                  { label: "Models Trained", value: models,    suffix: "",        pct: 78 },
-                  { label: "API Requests",   value: apiCalls,  suffix: "",        pct: 54 },
+                  { label: "Datasets", value: datasets, suffix: "", pct: 65 },
+                  { label: "Pipelines", value: pipelines, suffix: " active", pct: 48 },
+                  { label: "Models Trained", value: models, suffix: "", pct: 78 },
+                  { label: "API Requests", value: apiCalls, suffix: "", pct: 54 },
                 ].map((m, i) => (
                   <motion.div key={i} whileHover={{ y: -1 }} transition={{ type: "spring", stiffness: 500 }}
                     style={{ ...card, padding: "18px 20px" }}>
@@ -812,10 +820,10 @@ export default function DashboardClient({ user }: Props) {
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.34 }}
                 style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
                 {[
-                  { label: "Ask AI Analyst", onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> },
-                  { label: "Upload Data",    onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> },
-                  { label: "Run Pipeline",   onClick: undefined, icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg> },
-                  { label: "Deploy Model",   onClick: undefined, icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg> },
+                  { label: "Ask AI Analyst", onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg> },
+                  { label: "Upload Data", onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17,8 12,3 7,8" /><line x1="12" y1="3" x2="12" y2="15" /></svg> },
+                  { label: "Run Pipeline", onClick: undefined, icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12" /></svg> },
+                  { label: "Deploy Model", onClick: undefined, icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2L15 22 11 13 2 9l20-7z" /></svg> },
                 ].map((a, i) => <ActionCard key={i} label={a.label} icon={a.icon} onClick={a.onClick} />)}
               </motion.div>
 
@@ -907,7 +915,7 @@ export default function DashboardClient({ user }: Props) {
 
                 {[
                   { label: "GPU Utilization", value: "73%", pct: 73, color: C.green, sub: "NVIDIA A100 · 40GB VRAM" },
-                  { label: "Memory Usage",    value: "58%", pct: 58, color: C.amber, sub: "18.6 GB / 32 GB"         },
+                  { label: "Memory Usage", value: "58%", pct: 58, color: C.amber, sub: "18.6 GB / 32 GB" },
                 ].map((s, i) => (
                   <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.7 + i * 0.05 }}
                     style={{ ...card, padding: "16px 18px" }}>

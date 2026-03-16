@@ -4,11 +4,10 @@
   "private": true,
   "scripts": {
     "frontend": "next dev",
-    "backend": "cd backend && python -m uvicorn main:app --reload --port 8000",
+    "backend": "cd backend && venv\\Scripts\\python -m uvicorn main:app --reload --port 8000",
     "dev": "concurrently -n API,NEXT -c green,blue \"npm run backend\" \"npm run frontend\"",
     "build": "prisma generate && next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "next start"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

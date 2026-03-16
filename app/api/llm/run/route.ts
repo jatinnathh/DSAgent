@@ -1,75 +1,93 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
 const BYTEZ_API_KEY = process.env.BYTEZ_API_KEY!;
-const MODEL_ID = 'openai/gpt-4o';
-const BYTEZ_ENDPOINT = 'https://api.bytez.com/v1/chat/completions';
+const MODEL_ID = "openai/gpt-4o";
+const BYTEZ_ENDPOINT = "https://api.bytez.com/v1/responses";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages, tools } = body;
+    const { messages, tools, images } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
-        { error: 'Invalid request. Expected { messages: [...] }' },
+        { error: "Invalid request. Expected { messages: [...] }" },
         { status: 400 }
       );
     }
 
     if (!BYTEZ_API_KEY) {
       return NextResponse.json(
-        { error: 'BYTEZ_API_KEY is not configured in environment variables' },
+        { error: "BYTEZ_API_KEY missing in env" },
         { status: 500 }
       );
     }
 
-    // Build the request payload
-    const payload: Record<string, unknown> = {
-      model: MODEL_ID,
-      messages,
-      max_tokens: 2048,
-    };
+    // Convert chat history → Responses API format
+    // Convert chat history → Responses API format
+    const input = messages.map((m: any) => ({
+      role: m.role,
+      content: m.content
+    }));
 
-    // Only add tools if provided and non-empty
-    if (tools && Array.isArray(tools) && tools.length > 0) {
-      payload.tools = tools;
-      payload.tool_choice = 'auto';
+    // Attach image to last user message
+    if (images && images.length > 0) {
+      const last = input[input.length - 1];
+
+      if (last && last.role === "user") {
+        images.forEach((img: string) => {
+          last.content = [
+            { type: "input_text", text: last.content },
+            { type: "input_image", image_url: img }
+          ];
+        });
+      }
     }
 
+    const payload: Record<string, any> = {
+      model: MODEL_ID,
+      input,
+      max_output_tokens: 2048,
+    };
+
+    // Optional tools
+    if (tools && tools.length > 0) {
+      payload.tools = tools.map((t: any) => ({
+        type: "function",
+        name: t.name || t.function?.name,
+        description: t.description || t.function?.description,
+        parameters: t.parameters || t.function?.parameters
+      }));
+    }
+    console.log("TOOLS SENT TO BYTEZ:", JSON.stringify(payload.tools, null, 2));
     const response = await fetch(BYTEZ_ENDPOINT, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${BYTEZ_API_KEY}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BYTEZ_API_KEY}`,
       },
       body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Bytez API error:', response.status, errorText);
+      const err = await response.text();
+      console.error("Bytez error:", err);
+
       return NextResponse.json(
-        { error: `Bytez API error (${response.status})`, details: errorText },
-        { status: response.status }
+        { error: "Bytez API error", details: err },
+        { status: 500 }
       );
     }
 
     const result = await response.json();
 
-    // Log for debugging (remove in production)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Bytez response structure:', JSON.stringify(result).slice(0, 300));
-    }
+    return NextResponse.json(result);
 
-    // Wrap in 'output' field for agent.py compatibility
-    // The agent expects: data.output.choices[0].message.content
-    return NextResponse.json({ output: result });
+  } catch (err: any) {
+    console.error("LLM route error:", err);
 
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.error('LLM route error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: "Internal error", details: err.message },
       { status: 500 }
     );
   }

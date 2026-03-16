@@ -1,28 +1,52 @@
+# HELPER: Get DataFrame from session
+# ============================================
+# We'll store DataFrames in a global session dict for now
+# Later we'll move this to proper session management
+
+"""
+REPLACE the top of backend/tools/cleaning.py (the session helpers section)
+with this code. Keep everything below the # TOOL: Detect Missing Values comment unchanged.
+"""
+
 import pandas as pd
+import os
 from typing import Dict, Any, List, Optional, Literal
 from .registry import tool_registry
 
 # ============================================
 # HELPER: Get DataFrame from session
 # ============================================
-# We'll store DataFrames in a global session dict for now
-# Later we'll move this to proper session management
+# DataFrames are stored both in memory (fast) and on disk (persistent across restarts)
+
+SESSIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sessions")
+os.makedirs(SESSIONS_DIR, exist_ok=True)
 
 _session_data: Dict[str, pd.DataFrame] = {}
 
+def _session_path(session_id: str) -> str:
+    """Get the disk path for a session's CSV"""
+    return os.path.join(SESSIONS_DIR, f"{session_id}.csv")
+
 def get_dataframe(session_id: str) -> pd.DataFrame:
-    """Get DataFrame for a session"""
+    """Get DataFrame for a session — loads from disk if not in memory"""
     if session_id not in _session_data:
-        raise ValueError(f"Session {session_id} not found")
+        # Try to load from disk
+        path = _session_path(session_id)
+        if os.path.exists(path):
+            _session_data[session_id] = pd.read_csv(path)
+        else:
+            raise ValueError(f"Session {session_id} not found. Please re-upload your CSV.")
     return _session_data[session_id].copy()
 
 def update_dataframe(session_id: str, df: pd.DataFrame):
-    """Update DataFrame for a session"""
+    """Update DataFrame for a session — saves to memory and disk"""
     _session_data[session_id] = df.copy()
+    df.to_csv(_session_path(session_id), index=False)
 
 def set_dataframe(session_id: str, df: pd.DataFrame):
-    """Initialize DataFrame for a session"""
+    """Initialize DataFrame for a session — saves to memory and disk"""
     _session_data[session_id] = df.copy()
+    df.to_csv(_session_path(session_id), index=False)
 
 # ============================================
 # TOOL: Detect Missing Values
