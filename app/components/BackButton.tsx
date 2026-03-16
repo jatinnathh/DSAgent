@@ -28,7 +28,6 @@ export default function BackButton() {
         </span>
       </Link>
 
-      
     </motion.div>
   );
 }
