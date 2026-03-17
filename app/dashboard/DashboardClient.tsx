@@ -146,64 +146,64 @@ const NAV_GROUPS = [
   {
     section: "WORKSPACE",
     items: [
-      { id: "overview",  label: "Overview",     badge: null  },
-      { id: "agent",     label: "AI Analyst",   badge: "NEW" },
-      { id: "pipelines", label: "Pipelines",    badge: "3"   },
-      { id: "datasets",  label: "Datasets",     badge: "12"  },
-      { id: "models",    label: "Models",       badge: null  },
+      { id: "overview", label: "Overview", badge: null },
+      { id: "agent", label: "AI Analyst", badge: "NEW" },
+      { id: "pipelines", label: "Pipelines", badge: "3" },
+      { id: "datasets", label: "Datasets", badge: "12" },
+      { id: "models", label: "Models", badge: null },
     ],
   },
   {
     section: "INTELLIGENCE",
     items: [
       { id: "explainability", label: "Explainability", badge: null },
-      { id: "reports",        label: "Reports",        badge: null },
+      { id: "reports", label: "Reports", badge: null },
     ],
   },
   {
     section: "DEPLOY",
     items: [
-      { id: "endpoints",  label: "API Endpoints", badge: null },
-      { id: "monitoring", label: "Monitoring",    badge: null },
+      { id: "endpoints", label: "API Endpoints", badge: null },
+      { id: "monitoring", label: "Monitoring", badge: null },
     ],
   },
 ];
 
 const PIPELINES_DEMO = [
-  { id: "PL-2847", name: "Customer Churn Analysis",   status: "completed" as const, model: "XGBoost",       score: "94.2%", time: "12m ago" },
-  { id: "PL-2846", name: "Revenue Forecasting Q1",    status: "running"   as const, model: "LSTM",          score: "—",     time: "34m ago" },
-  { id: "PL-2845", name: "Fraud Detection v3",        status: "completed" as const, model: "Random Forest", score: "97.8%", time: "2h ago"  },
-  { id: "PL-2844", name: "Sentiment Classification",  status: "failed"    as const, model: "DistilBERT",   score: "—",     time: "5h ago"  },
-  { id: "PL-2843", name: "Supply Chain Optimization", status: "completed" as const, model: "LightGBM",     score: "89.1%", time: "1d ago"  },
+  { id: "PL-2847", name: "Customer Churn Analysis", status: "completed" as const, model: "XGBoost", score: "94.2%", time: "12m ago" },
+  { id: "PL-2846", name: "Revenue Forecasting Q1", status: "running" as const, model: "LSTM", score: "—", time: "34m ago" },
+  { id: "PL-2845", name: "Fraud Detection v3", status: "completed" as const, model: "Random Forest", score: "97.8%", time: "2h ago" },
+  { id: "PL-2844", name: "Sentiment Classification", status: "failed" as const, model: "DistilBERT", score: "—", time: "5h ago" },
+  { id: "PL-2843", name: "Supply Chain Optimization", status: "completed" as const, model: "LightGBM", score: "89.1%", time: "1d ago" },
 ];
 
 const DATASETS_DEMO = [
-  { name: "customer_churn.csv",   rows: "45,231",    cols: 23, size: "12.4 MB", date: "Today"     },
-  { name: "sales_2024.csv",       rows: "128,400",   cols: 31, size: "34.7 MB", date: "Yesterday" },
-  { name: "transactions.parquet", rows: "1,240,000", cols: 18, size: "156 MB",  date: "2 days ago"},
-  { name: "reviews.json",         rows: "8,920",     cols:  6, size: "4.2 MB",  date: "3 days ago"},
+  { name: "customer_churn.csv", rows: "45,231", cols: 23, size: "12.4 MB", date: "Today" },
+  { name: "sales_2024.csv", rows: "128,400", cols: 31, size: "34.7 MB", date: "Yesterday" },
+  { name: "transactions.parquet", rows: "1,240,000", cols: 18, size: "156 MB", date: "2 days ago" },
+  { name: "reviews.json", rows: "8,920", cols: 6, size: "4.2 MB", date: "3 days ago" },
 ];
 
 const ACTIVITY_DEMO = [
-  { type: "success", text: "Pipeline PL-2847 completed — 94.2% accuracy",         time: "12m ago" },
-  { type: "deploy",  text: "XGBoost model deployed to endpoint /v2/churn",         time: "28m ago" },
-  { type: "upload",  text: "customer_churn.csv uploaded (45,231 rows)",            time: "1h ago"  },
-  { type: "warning", text: "Data drift detected on Revenue Forecast model",         time: "3h ago"  },
-  { type: "success", text: "Pipeline PL-2845 completed — 97.8% accuracy",         time: "5h ago"  },
-  { type: "report",  text: "Q4 Comprehensive Analysis report generated",           time: "1d ago"  },
+  { type: "success", text: "Pipeline PL-2847 completed — 94.2% accuracy", time: "12m ago" },
+  { type: "deploy", text: "XGBoost model deployed to endpoint /v2/churn", time: "28m ago" },
+  { type: "upload", text: "customer_churn.csv uploaded (45,231 rows)", time: "1h ago" },
+  { type: "warning", text: "Data drift detected on Revenue Forecast model", time: "3h ago" },
+  { type: "success", text: "Pipeline PL-2845 completed — 97.8% accuracy", time: "5h ago" },
+  { type: "report", text: "Q4 Comprehensive Analysis report generated", time: "1d ago" },
 ];
 
 const MODEL_PERF = [
-  { name: "Random Forest — Fraud Detection", score: 97.8, color: C.green  },
-  { name: "XGBoost — Churn Prediction",      score: 94.2, color: C.text   },
-  { name: "LightGBM — Supply Chain",         score: 89.1, color: C.purple },
-  { name: "LSTM — Revenue Forecast",         score: 86.4, color: C.amber  },
+  { name: "Random Forest — Fraud Detection", score: 97.8, color: C.green },
+  { name: "XGBoost — Churn Prediction", score: 94.2, color: C.text },
+  { name: "LightGBM — Supply Chain", score: 89.1, color: C.purple },
+  { name: "LSTM — Revenue Forecast", score: 86.4, color: C.amber },
 ];
 
 const STATUS_MAP = {
-  completed: { label: "Done",    color: C.green, bg: C.greenBg, border: C.greenBorder },
-  running:   { label: "Running", color: C.text,  bg: C.whiteDim, border: C.borderMd  },
-  failed:    { label: "Error",   color: C.red,   bg: C.redBg,   border: C.redBorder  },
+  completed: { label: "Done", color: C.green, bg: C.greenBg, border: C.greenBorder },
+  running: { label: "Running", color: C.text, bg: C.whiteDim, border: C.borderMd },
+  failed: { label: "Error", color: C.red, bg: C.redBg, border: C.redBorder },
 } as const;
 
 const ACT_DOT: Record<string, string> = {
@@ -276,23 +276,23 @@ function Pill({ status }: { status: keyof typeof STATUS_MAP }) {
 function NI({ id }: { id: string }) {
   const p = { width: 15, height: 15, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const icons: Record<string, React.ReactNode> = {
-    overview:       <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>,
-    pipelines:      <svg {...p}><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>,
-    datasets:       <svg {...p}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg>,
-    models:         <svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
-    agent:          <svg {...p}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>,
-    explainability: <svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-    reports:        <svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-    endpoints:      <svg {...p}><rect x="2" y="7" width="12" height="7" rx="1"/><path d="M5 7V5a3 3 0 016 0v2"/></svg>,
-    monitoring:     <svg {...p}><circle cx="12" cy="12" r="5"/><path d="M12 7v5l2 2"/></svg>,
-    settings:       <svg {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
+    overview: <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>,
+    pipelines: <svg {...p}><polyline points="22,12 18,12 15,21 9,3 6,12 2,12" /></svg>,
+    datasets: <svg {...p}><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" /></svg>,
+    models: <svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>,
+    agent: <svg {...p}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>,
+    explainability: <svg {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
+    reports: <svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14,2 14,8 20,8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>,
+    endpoints: <svg {...p}><rect x="2" y="7" width="12" height="7" rx="1" /><path d="M5 7V5a3 3 0 016 0v2" /></svg>,
+    monitoring: <svg {...p}><circle cx="12" cy="12" r="5" /><path d="M12 7v5l2 2" /></svg>,
+    settings: <svg {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /></svg>,
   };
   return <>{icons[id] ?? null}</>;
 }
 
-const card: React.CSSProperties       = { background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: "hidden" };
-const cardHdr: React.CSSProperties   = { padding: "14px 18px", borderBottom: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" };
-const TH: React.CSSProperties        = { fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" as const, color: C.textMute, fontFamily: C.mono };
+const card: React.CSSProperties = { background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 12, overflow: "hidden" };
+const cardHdr: React.CSSProperties = { padding: "14px 18px", borderBottom: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" };
+const TH: React.CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" as const, color: C.textMute, fontFamily: C.mono };
 
 function Btn({ children, primary, onClick, style }: { children: React.ReactNode; primary?: boolean; onClick?: () => void; style?: React.CSSProperties }) {
   const [hov, setHov] = useState(false);
@@ -326,6 +326,85 @@ function ActionCard({ label, icon, onClick }: { label: string; icon: React.React
       style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderRadius: 10, cursor: "pointer", background: hov ? C.cardHover : C.card, border: `0.5px solid ${hov ? C.borderMd : C.border}`, color: hov ? C.text : C.textSub, fontSize: 12, fontWeight: 500, fontFamily: C.sans, transition: "all 0.13s" }}>
       {icon}{label}
     </button>
+  );
+}
+// ── Pipeline run history modal ───────────────────────────────────
+function PipelineRunHistory({ pipelineId, onClose }: { pipelineId: string; onClose: () => void }) {
+  const [runs, setRuns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/pipelines/${pipelineId}/run`)
+      .then(r => r.ok ? r.json() : { runs: [] })
+      .then(d => { setRuns(d.runs || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [pipelineId]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
+        onClick={e => e.stopPropagation()}
+        style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, width: "100%", maxWidth: 600, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+      >
+        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h3 style={{ fontFamily: C.head, fontSize: "0.95rem", fontWeight: 700, color: C.text, margin: 0 }}>Run History</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: 40, color: C.textMute, fontSize: 12 }}>Loading…</div>
+          ) : runs.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: C.textMute, fontSize: 12 }}>No runs recorded yet. Run the pipeline to see history.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {runs.map((run, i) => {
+                const results = Array.isArray(run.stepResults) ? run.stepResults : [];
+                const successCount = results.filter((r: any) => r.success).length;
+                const errorCount = results.filter((r: any) => !r.success).length;
+                return (
+                  <div key={run.id} style={{ background: C.cardHover, borderRadius: 10, border: `1px solid ${C.border}`, padding: "12px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontFamily: C.mono, color: C.textMute }}>Run #{runs.length - i}</span>
+                      <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: `${C.green}20`, color: C.green, fontFamily: C.mono, fontWeight: 600 }}>
+                        {successCount} ✓
+                      </span>
+                      {errorCount > 0 && (
+                        <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: `${C.red}20`, color: C.red, fontFamily: C.mono, fontWeight: 600 }}>
+                          {errorCount} ✗
+                        </span>
+                      )}
+                      <span style={{ flex: 1 }} />
+                      <span style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>
+                        {new Date(run.startedAt).toLocaleDateString()} {new Date(run.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    {results.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {results.map((r: any, ri: number) => (
+                          <div key={ri} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10, fontFamily: C.mono }}>
+                            <span style={{ color: r.success ? C.green : C.red, fontSize: 12 }}>{r.success ? "✓" : "✗"}</span>
+                            <span style={{ color: C.textSub, flex: 1 }}>{r.tool}</span>
+                            {r.executionMs && <span style={{ color: C.textMute }}>{r.executionMs}ms</span>}
+                            {!r.success && r.errorMsg && (
+                              <span style={{ color: C.red, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.errorMsg}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -365,7 +444,7 @@ function DatasetDemoRow({ ds, last }: { ds: typeof DATASETS_DEMO[number]; last: 
       style={{ display: "grid", gridTemplateColumns: "1fr 92px 52px 82px 76px", padding: "10px 18px", gap: 10, alignItems: "center", borderBottom: last ? "none" : `0.5px solid ${C.border}`, background: hov ? C.cardHover : "transparent", cursor: "pointer", transition: "background 0.12s" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
         <div style={{ width: 24, height: 24, borderRadius: 5, background: C.pill, border: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={C.textSub} strokeWidth={1.5} strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke={C.textSub} strokeWidth={1.5} strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14,2 14,8 20,8" /></svg>
         </div>
         <span style={{ fontFamily: C.mono, fontSize: 11, color: C.textSub }}>{ds.name}</span>
       </div>
@@ -387,7 +466,7 @@ function AgentView() {
     try {
       const res = await fetch("/api/chats");
       if (res.ok) { const d = await res.json(); setChats(d.chats || []); }
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => { fetchChats(); }, []);
@@ -430,11 +509,15 @@ function AgentView() {
 }
 
 /* ─────────────────────────── PIPELINE VIEW ────────────────────────────── */
-function PipelineListCard({ pipeline, onRefresh }: { pipeline: any; onRefresh: () => void }) {
+function PipelineListCard({ pipeline, onRefresh, onViewHistory }: {
+  pipeline: any; onRefresh: () => void; onViewHistory: (id: string) => void;
+}) {
   const [hov, setHov] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const statusColor: Record<string, string> = { draft: C.textMute, running: C.amber, completed: C.green, failed: C.red };
+  const statusColor: Record<string, string> = {
+    draft: C.textMute, running: C.amber, completed: C.green, failed: C.red,
+  };
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -445,47 +528,71 @@ function PipelineListCard({ pipeline, onRefresh }: { pipeline: any; onRefresh: (
   };
 
   const steps = Array.isArray(pipeline.steps) ? pipeline.steps : [];
+  const runCount = pipeline._count?.runs ?? 0;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ padding: "16px 18px", background: hov ? C.cardHover : C.card, border: `1px solid ${hov ? C.borderMd : C.border}`, borderRadius: 12, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", transition: "all 0.13s" }}>
+      style={{ padding: "14px 16px", background: hov ? C.cardHover : C.card, border: `1px solid ${hov ? C.borderMd : C.border}`, borderRadius: 12, display: "flex", alignItems: "center", gap: 12, cursor: "default", transition: "all 0.13s" }}>
+
       {/* Icon */}
-      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${C.cyan}15`, border: `1px solid ${C.cyan}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>⚡</div>
+      <div style={{ width: 34, height: 34, borderRadius: 9, background: `${C.cyan}15`, border: `1px solid ${C.cyan}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>⚡</div>
+
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: C.head, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 3 }}>{pipeline.name}</div>
-        <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>{steps.length} steps · {pipeline._count?.runs ?? 0} runs · {new Date(pipeline.updatedAt).toLocaleDateString()}</div>
+        <div style={{ fontFamily: C.head, fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {pipeline.name}
+        </div>
+        <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>
+          {steps.length} step{steps.length !== 1 ? "s" : ""} · {runCount} run{runCount !== 1 ? "s" : ""} · {new Date(pipeline.updatedAt).toLocaleDateString()}
+        </div>
       </div>
+
       {/* Category pills */}
-      <div style={{ display: "flex", gap: 4 }}>
-        {["cleaning", "eda", "visualization", "modeling"].map((cat) => {
+      <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+        {(["cleaning", "eda", "visualization", "modeling"] as const).map((cat) => {
           const count = steps.filter((s: any) => s.category === cat).length;
           if (!count) return null;
           return (
-            <span key={cat} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: `${CATEGORY_COLOR[cat]}18`, color: CATEGORY_COLOR[cat], fontFamily: C.mono, fontWeight: 600 }}>
-              {CATEGORY_ICON[cat]} {count}
+            <span key={cat} style={{ fontSize: 9, padding: "2px 5px", borderRadius: 4, background: `${CATEGORY_COLOR[cat]}18`, color: CATEGORY_COLOR[cat], fontFamily: C.mono, fontWeight: 600 }}>
+              {CATEGORY_ICON[cat]}{count}
             </span>
           );
         })}
       </div>
+
       {/* Status */}
-      <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: `${statusColor[pipeline.status] || C.textMute}18`, color: statusColor[pipeline.status] || C.textMute, fontFamily: C.mono, fontWeight: 600, border: `1px solid ${statusColor[pipeline.status] || C.textMute}33` }}>
+      <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: `${statusColor[pipeline.status] || C.textMute}18`, color: statusColor[pipeline.status] || C.textMute, fontFamily: C.mono, fontWeight: 600, border: `1px solid ${statusColor[pipeline.status] || C.textMute}33`, flexShrink: 0 }}>
         {pipeline.status}
       </span>
+
+      {/* History btn */}
+      {runCount > 0 && (
+        <button onClick={() => onViewHistory(pipeline.id)}
+          style={{ padding: "4px 9px", borderRadius: 5, border: `1px solid ${C.borderMd}`, background: "none", color: C.textSub, fontSize: 10, fontFamily: C.mono, cursor: "pointer", flexShrink: 0, transition: "all 0.13s" }}
+          onMouseEnter={(e) => { (e.currentTarget.style.color = C.cyan); (e.currentTarget.style.borderColor = C.cyan + "55"); }}
+          onMouseLeave={(e) => { (e.currentTarget.style.color = C.textSub); (e.currentTarget.style.borderColor = C.borderMd); }}>
+          📋 History
+        </button>
+      )}
+
       {/* Delete */}
-      <button onClick={handleDelete} disabled={deleting} style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", padding: "4px", borderRadius: 4, fontSize: 13, opacity: deleting ? 0.3 : 1, transition: "color 0.15s" }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = C.red)} onMouseLeave={(e) => (e.currentTarget.style.color = C.textMute)}>
+      <button onClick={handleDelete} disabled={deleting}
+        style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", padding: "4px", borderRadius: 4, fontSize: 13, opacity: deleting ? 0.3 : 1, transition: "color 0.15s", flexShrink: 0 }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = C.red)}
+        onMouseLeave={(e) => (e.currentTarget.style.color = C.textMute)}>
         🗑
       </button>
     </motion.div>
   );
 }
 
+// ── PipelineView ─────────────────────────────────────────────────
 function PipelineView() {
   const [savedPipelines, setSavedPipelines] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [view, setView] = useState<"list" | "create">("list");
+  const [historyPipelineId, setHistoryPipelineId] = useState<string | null>(null);
 
   const fetchPipelines = async () => {
     setLoadingList(true);
@@ -497,17 +604,22 @@ function PipelineView() {
 
   useEffect(() => { fetchPipelines(); }, []);
 
+  // Derived stats — computed AFTER load
+  const totalSteps = savedPipelines.reduce((acc, p) => acc + (Array.isArray(p.steps) ? p.steps.length : 0), 0);
+  const completedCount = savedPipelines.filter(p => p.status === "completed").length;
+  const draftCount = savedPipelines.filter(p => p.status === "draft").length;
+
   if (view === "create") {
     return (
       <div style={{ height: "calc(100vh - 120px)", display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexShrink: 0 }}>
           <button onClick={() => { setView("list"); fetchPipelines(); }}
-            style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 14px", color: C.textSub, fontSize: 11, cursor: "pointer", fontFamily: C.sans, display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text; (e.currentTarget as HTMLElement).style.borderColor = C.borderMd; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textSub; (e.currentTarget as HTMLElement).style.borderColor = C.border; }}>
+            style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 12px", color: C.textSub, fontSize: 11, cursor: "pointer", fontFamily: C.sans, display: "flex", alignItems: "center", gap: 5, transition: "all 0.14s" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textSub; }}>
             ← Pipelines
           </button>
-          <h2 style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, margin: 0 }}>Pipeline Builder</h2>
+          <h2 style={{ fontFamily: C.head, fontSize: "0.95rem", fontWeight: 700, color: C.text, margin: 0 }}>Pipeline Builder</h2>
           <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 4, background: `${C.cyan}15`, color: C.cyan, border: `1px solid ${C.cyan}30`, fontFamily: C.mono }}>AI-Assisted</span>
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
@@ -520,28 +632,28 @@ function PipelineView() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
         <div>
-          <h2 style={{ fontFamily: C.head, fontSize: "1.15rem", fontWeight: 700, color: C.text, marginBottom: 5, letterSpacing: "-0.02em" }}>Pipelines</h2>
-          <p style={{ fontSize: 12, color: C.textSub, margin: 0, lineHeight: 1.6 }}>Build, save and re-run automated data science workflows.</p>
+          <h2 style={{ fontFamily: C.head, fontSize: "1.15rem", fontWeight: 700, color: C.text, marginBottom: 4, letterSpacing: "-0.02em" }}>Pipelines</h2>
+          <p style={{ fontSize: 12, color: C.textSub, margin: 0 }}>Build, save and re-run automated data science workflows.</p>
         </div>
         <button onClick={() => setView("create")}
-          style={{ padding: "8px 20px", borderRadius: 9, border: "none", background: `linear-gradient(135deg, ${C.cyan}, #0099CC)`, color: "#030712", fontSize: 12, fontWeight: 700, fontFamily: C.head, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, boxShadow: `0 4px 20px ${C.cyan}30` }}>
-          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          style={{ padding: "8px 18px", borderRadius: 9, border: "none", background: `linear-gradient(135deg, ${C.cyan}, #0099CC)`, color: "#030712", fontSize: 12, fontWeight: 700, fontFamily: C.head, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: `0 4px 20px ${C.cyan}30`, flexShrink: 0 }}>
+          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           New Pipeline
         </button>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
+      {/* Stats — always render, show 0 before load */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
         {[
-          { label: "Total Pipelines",  value: savedPipelines.length,                                                  color: C.cyan   },
-          { label: "Completed",        value: savedPipelines.filter(p => p.status === "completed").length,            color: C.green  },
-          { label: "Draft",            value: savedPipelines.filter(p => p.status === "draft").length,                color: C.textSub},
-          { label: "Total Steps",      value: savedPipelines.reduce((acc,p) => acc + (Array.isArray(p.steps) ? p.steps.length : 0), 0), color: C.purple },
+          { label: "Total", value: loadingList ? "…" : savedPipelines.length, color: C.cyan },
+          { label: "Completed", value: loadingList ? "…" : completedCount, color: C.green },
+          { label: "Draft", value: loadingList ? "…" : draftCount, color: C.textSub },
+          { label: "Steps", value: loadingList ? "…" : totalSteps, color: C.purple },
         ].map((s, i) => (
-          <div key={i} style={{ ...card, padding: "14px 16px" }}>
-            <div style={{ fontSize: 9, fontWeight: 600, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, fontFamily: C.mono }}>{s.label}</div>
+          <div key={i} style={{ ...card, padding: "13px 15px" }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: C.textMute, textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5, fontFamily: C.mono }}>{s.label}</div>
             <div style={{ fontFamily: C.head, fontSize: "1.5rem", fontWeight: 700, color: s.color, letterSpacing: "-0.03em" }}>{s.value}</div>
           </div>
         ))}
@@ -551,29 +663,46 @@ function PipelineView() {
       {loadingList ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {[1, 2, 3].map(i => (
-            <div key={i} style={{ height: 72, borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, opacity: 0.4 + i * 0.1 }} />
+            <div key={i} style={{ height: 70, borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, opacity: 0.3 + i * 0.1 }} />
           ))}
         </div>
       ) : savedPipelines.length === 0 ? (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          style={{ textAlign: "center", padding: "80px 20px", background: C.card, borderRadius: 16, border: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>⚡</div>
-          <div style={{ fontFamily: C.head, fontSize: "1.05rem", fontWeight: 600, color: C.text, marginBottom: 8 }}>No pipelines yet</div>
-          <p style={{ fontSize: 12, color: C.textSub, marginBottom: 24, maxWidth: 320, margin: "0 auto 24px" }}>
-            Create your first pipeline. Upload a CSV, let the AI suggest steps, then run them automatically.
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          style={{ textAlign: "center", padding: "70px 20px", background: C.card, borderRadius: 16, border: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 38, marginBottom: 14 }}>⚡</div>
+          <div style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 600, color: C.text, marginBottom: 7 }}>No pipelines yet</div>
+          <p style={{ fontSize: 12, color: C.textSub, marginBottom: 20, maxWidth: 300, margin: "0 auto 20px" }}>
+            Upload a CSV, let AI suggest steps, and run them automatically.
           </p>
           <button onClick={() => setView("create")}
-            style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: `linear-gradient(135deg, ${C.cyan}, #0099CC)`, color: "#030712", fontSize: 12, fontWeight: 700, fontFamily: C.head, cursor: "pointer" }}>
+            style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: `linear-gradient(135deg, ${C.cyan}, #0099CC)`, color: "#030712", fontSize: 12, fontWeight: 700, fontFamily: C.head, cursor: "pointer" }}>
             Build First Pipeline
           </button>
         </motion.div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <AnimatePresence>
-            {savedPipelines.map(p => <PipelineListCard key={p.id} pipeline={p} onRefresh={fetchPipelines} />)}
+            {savedPipelines.map(p => (
+              <PipelineListCard
+                key={p.id}
+                pipeline={p}
+                onRefresh={fetchPipelines}
+                onViewHistory={(id) => setHistoryPipelineId(id)}
+              />
+            ))}
           </AnimatePresence>
         </div>
       )}
+
+      {/* History modal */}
+      <AnimatePresence>
+        {historyPipelineId && (
+          <PipelineRunHistory
+            pipelineId={historyPipelineId}
+            onClose={() => setHistoryPipelineId(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -582,10 +711,10 @@ function PipelineView() {
 function OverviewContent({ user, setActiveView }: { user: { firstName: string | null }; setActiveView: (v: string) => void }) {
   const mRef = useRef<HTMLDivElement>(null);
   const inView = useInView(mRef, { once: true });
-  const datasets  = useCountUp(24,    1500, inView);
-  const pipelines = useCountUp(7,     1500, inView);
-  const models    = useCountUp(156,   2000, inView);
-  const apiCalls  = useCountUp(12847, 2400, inView);
+  const datasets = useCountUp(24, 1500, inView);
+  const pipelines = useCountUp(7, 1500, inView);
+  const models = useCountUp(156, 2000, inView);
+  const apiCalls = useCountUp(12847, 2400, inView);
 
   return (
     <>
@@ -613,10 +742,10 @@ function OverviewContent({ user, setActiveView }: { user: { firstName: string | 
       <motion.div ref={mRef} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.26 }}
         style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
         {[
-          { label: "Datasets",      value: datasets,  suffix: "",       pct: 65 },
-          { label: "Pipelines",     value: pipelines, suffix: " active",pct: 48 },
-          { label: "Models Trained",value: models,    suffix: "",       pct: 78 },
-          { label: "API Requests",  value: apiCalls,  suffix: "",       pct: 54 },
+          { label: "Datasets", value: datasets, suffix: "", pct: 65 },
+          { label: "Pipelines", value: pipelines, suffix: " active", pct: 48 },
+          { label: "Models Trained", value: models, suffix: "", pct: 78 },
+          { label: "API Requests", value: apiCalls, suffix: "", pct: 54 },
         ].map((m, i) => (
           <motion.div key={i} whileHover={{ y: -1 }} transition={{ type: "spring", stiffness: 500 }} style={{ ...card, padding: "18px 20px" }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>{m.label}</div>
@@ -630,10 +759,10 @@ function OverviewContent({ user, setActiveView }: { user: { firstName: string | 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.34 }}
         style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
         {[
-          { label: "Ask AI Analyst",  onClick: () => setActiveView("agent"),     icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> },
-          { label: "Build Pipeline",  onClick: () => setActiveView("pipelines"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg> },
-          { label: "Upload Data",     onClick: () => setActiveView("agent"),     icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> },
-          { label: "Deploy Model",    onClick: undefined,                        icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg> },
+          { label: "Ask AI Analyst", onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg> },
+          { label: "Build Pipeline", onClick: () => setActiveView("pipelines"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12" /></svg> },
+          { label: "Upload Data", onClick: () => setActiveView("agent"), icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17,8 12,3 7,8" /><line x1="12" y1="3" x2="12" y2="15" /></svg> },
+          { label: "Deploy Model", onClick: undefined, icon: <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2L15 22 11 13 2 9l20-7z" /></svg> },
         ].map((a, i) => <ActionCard key={i} label={a.label} icon={a.icon} onClick={a.onClick} />)}
       </motion.div>
 
@@ -724,7 +853,7 @@ function OverviewContent({ user, setActiveView }: { user: { firstName: string | 
 
         {[
           { label: "GPU Utilization", value: "73%", pct: 73, color: C.green, sub: "NVIDIA A100 · 40GB VRAM" },
-          { label: "Memory Usage",    value: "58%", pct: 58, color: C.amber, sub: "18.6 GB / 32 GB"        },
+          { label: "Memory Usage", value: "58%", pct: 58, color: C.amber, sub: "18.6 GB / 32 GB" },
         ].map((s, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.44, delay: 0.7 + i * 0.05 }} style={{ ...card, padding: "16px 18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
@@ -772,7 +901,7 @@ export default function DashboardClient({ user }: Props) {
           {!collapsed && <Link href="/" style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, textDecoration: "none", letterSpacing: "-0.02em" }}>DSAgent</Link>}
           {!collapsed && <span style={{ fontSize: 10, color: C.textMute, background: C.pill, padding: "2px 7px", borderRadius: 4, border: `0.5px solid ${C.border}`, fontFamily: C.mono }}>beta</span>}
           <button onClick={() => setCollapsed(c => !c)} style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", padding: 5, borderRadius: 5, display: "flex", marginLeft: collapsed ? 0 : 2 }}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
           </button>
         </div>
 
@@ -812,11 +941,11 @@ export default function DashboardClient({ user }: Props) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", borderRadius: 8, background: C.input, border: `0.5px solid ${C.border}`, minWidth: 200 }}>
-              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.textMute} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke={C.textMute} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
               <input placeholder="Search…" style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontSize: "0.78rem", fontFamily: C.sans, width: "100%" }} />
             </div>
             <button style={{ background: C.input, border: `0.5px solid ${C.border}`, borderRadius: 8, padding: "7px", cursor: "pointer", color: C.textMute, position: "relative", display: "flex" }}>
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /></svg>
               <span style={{ position: "absolute", top: 4, right: 4, width: 5, height: 5, borderRadius: "50%", background: C.red }} />
             </button>
             <Btn>Export report</Btn>
