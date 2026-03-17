@@ -1,989 +1,651 @@
 "use client";
-import Link from 'next/link';
-import React, { useRef, useMemo, useState, useEffect } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, Stars } from "@react-three/drei";
-import { motion, useInView, useScroll, useTransform } from "framer-motion";
-import * as THREE from "three";
 
-/* =========================================
-   THREE.JS COMPONENTS
-   ========================================= */
+import Link from "next/link";
+import React, { useRef, useState, useEffect } from "react";
+import { motion, useScroll, useTransform, useInView } from "framer-motion";
 
-function ParticleNetwork() {
-  const pointsRef = useRef<THREE.Points>(null);
-  const linesRef = useRef<THREE.LineSegments>(null);
-  const count = 120;
+/* ─────────────────────── CUSTOM CURSOR ─────────────────────── */
+function Cursor() {
+  const [pos, setPos] = useState({ x: -100, y: -100 });
+  const [hov, setHov] = useState(false);
 
-  const { positions, velocities } = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const vel = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 16;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 10;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 8;
-      vel[i * 3] = (Math.random() - 0.5) * 0.003;
-      vel[i * 3 + 1] = (Math.random() - 0.5) * 0.003;
-      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.002;
-    }
-    return { positions: pos, velocities: vel };
+  useEffect(() => {
+    const move = (e: MouseEvent) => setPos({ x: e.clientX, y: e.clientY });
+    const over = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      setHov(!!(t.closest("a, button, [data-hover]")));
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseover", over);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseover", over);
+    };
   }, []);
-
-  useFrame(() => {
-    if (!pointsRef.current) return;
-    const posArr = pointsRef.current.geometry.attributes.position
-      .array as Float32Array;
-
-    for (let i = 0; i < count; i++) {
-      posArr[i * 3] += velocities[i * 3];
-      posArr[i * 3 + 1] += velocities[i * 3 + 1];
-      posArr[i * 3 + 2] += velocities[i * 3 + 2];
-      for (let j = 0; j < 3; j++) {
-        const limit = j === 0 ? 8 : j === 1 ? 5 : 4;
-        if (Math.abs(posArr[i * 3 + j]) > limit) {
-          velocities[i * 3 + j] *= -1;
-        }
-      }
-    }
-    pointsRef.current.geometry.attributes.position.needsUpdate = true;
-
-    if (linesRef.current) {
-      const linePositions: number[] = [];
-      for (let i = 0; i < count; i++) {
-        for (let j = i + 1; j < count; j++) {
-          const dx = posArr[i * 3] - posArr[j * 3];
-          const dy = posArr[i * 3 + 1] - posArr[j * 3 + 1];
-          const dz = posArr[i * 3 + 2] - posArr[j * 3 + 2];
-          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-          if (dist < 2.5) {
-            linePositions.push(
-              posArr[i * 3], posArr[i * 3 + 1], posArr[i * 3 + 2],
-              posArr[j * 3], posArr[j * 3 + 1], posArr[j * 3 + 2]
-            );
-          }
-        }
-      }
-      const lineGeom = new THREE.BufferGeometry();
-      lineGeom.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(linePositions, 3)
-      );
-      linesRef.current.geometry.dispose();
-      linesRef.current.geometry = lineGeom;
-    }
-  });
 
   return (
     <>
-      <points ref={pointsRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            args={[positions, 3]}
-            count={count}
-          />
-        </bufferGeometry>
-        <pointsMaterial
-          size={0.05}
-          color="#00D4FF"
-          transparent
-          opacity={0.6}
-          sizeAttenuation
-        />
-      </points>
-      <lineSegments ref={linesRef}>
-        <bufferGeometry />
-        <lineBasicMaterial color="#00D4FF" transparent opacity={0.08} />
-      </lineSegments>
+      <motion.div
+        style={{ position: "fixed", zIndex: 9999, pointerEvents: "none", top: 0, left: 0 }}
+        animate={{ x: pos.x - (hov ? 20 : 8), y: pos.y - (hov ? 20 : 8) }}
+        transition={{ type: "spring", stiffness: 800, damping: 40, mass: 0.3 }}
+      >
+        <div style={{
+          width: hov ? 40 : 16, height: hov ? 40 : 16, borderRadius: "50%",
+          border: `1.5px solid ${hov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)"}`,
+          background: hov ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)",
+          backdropFilter: "blur(4px)",
+          transition: "width 0.2s, height 0.2s, background 0.2s, border-color 0.2s",
+        }} />
+      </motion.div>
+      <motion.div
+        style={{ position: "fixed", zIndex: 9998, pointerEvents: "none", top: 0, left: 0 }}
+        animate={{ x: pos.x - 2, y: pos.y - 2 }}
+        transition={{ type: "spring", stiffness: 2000, damping: 60 }}
+      >
+        <div style={{ width: 4, height: 4, borderRadius: "50%", background: "white" }} />
+      </motion.div>
     </>
   );
 }
 
-function HeroTorusKnot() {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, delta) => {
-    if (ref.current) {
-      ref.current.rotation.x += delta * 0.12;
-      ref.current.rotation.y += delta * 0.18;
-    }
-  });
+/* ─────────────────────── NOISE GRAIN ─────────────────────── */
+function Grain() {
   return (
-    <mesh ref={ref} position={[0, 0, -1]}>
-      <torusKnotGeometry args={[1.8, 0.4, 128, 32]} />
-      <meshBasicMaterial color="#00D4FF" wireframe transparent opacity={0.08} />
-    </mesh>
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9990, pointerEvents: "none", opacity: 0.028,
+      backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+      backgroundRepeat: "repeat", backgroundSize: "128px 128px",
+    }} />
   );
 }
 
-function HeroScene() {
-  return (
-    <Canvas
-      camera={{ position: [0, 0, 5], fov: 70 }}
-      style={{ background: "transparent" }}
-      dpr={[1, 1.5]}
-    >
-      <ambientLight intensity={0.3} />
-      <ParticleNetwork />
-      <HeroTorusKnot />
-      <Stars radius={100} depth={60} count={1200} factor={4} fade speed={0.3} />
-    </Canvas>
-  );
-}
-
-/* --- Pipeline 3D Shapes --- */
-function RotatingCube() {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, d) => {
-    if (ref.current) {
-      ref.current.rotation.x += d * 0.4;
-      ref.current.rotation.y += d * 0.6;
-    }
-  });
-  return (
-    <Float speed={2} floatIntensity={0.5}>
-      <mesh ref={ref}>
-        <boxGeometry args={[1.3, 1.3, 1.3]} />
-        <meshStandardMaterial color="#00D4FF" wireframe transparent opacity={0.6} />
-      </mesh>
-    </Float>
-  );
-}
-
-function FunnelShape() {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, d) => {
-    if (ref.current) ref.current.rotation.y += d * 0.3;
-  });
-  return (
-    <Float speed={1.5} floatIntensity={0.6}>
-      <mesh ref={ref}>
-        <coneGeometry args={[1, 1.6, 6, 1, true]} />
-        <meshStandardMaterial color="#8B5CF6" wireframe transparent opacity={0.6} />
-      </mesh>
-    </Float>
-  );
-}
-
-function GearShape() {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, d) => {
-    if (ref.current) ref.current.rotation.z += d * 0.5;
-  });
-  return (
-    <Float speed={1.8} floatIntensity={0.4}>
-      <mesh ref={ref}>
-        <torusGeometry args={[0.7, 0.25, 8, 24]} />
-        <meshStandardMaterial color="#F59E0B" wireframe transparent opacity={0.6} />
-      </mesh>
-    </Float>
-  );
-}
-
-function NeuralSphere() {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, d) => {
-    if (ref.current) {
-      ref.current.rotation.x += d * 0.2;
-      ref.current.rotation.y += d * 0.3;
-    }
-  });
-  return (
-    <Float speed={2} floatIntensity={0.5}>
-      <mesh ref={ref}>
-        <icosahedronGeometry args={[0.9, 1]} />
-        <meshStandardMaterial color="#00D4FF" wireframe transparent opacity={0.6} />
-      </mesh>
-    </Float>
-  );
-}
-
-function DiamondShape() {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, d) => {
-    if (ref.current) ref.current.rotation.y += d * 0.4;
-  });
-  return (
-    <Float speed={2.2} floatIntensity={0.6}>
-      <mesh ref={ref}>
-        <octahedronGeometry args={[0.9, 0]} />
-        <meshStandardMaterial color="#8B5CF6" wireframe transparent opacity={0.5} />
-      </mesh>
-    </Float>
-  );
-}
-
-function MiniPipelineCanvas({ children }: { children: React.ReactNode }) {
-  return (
-    <Canvas
-      camera={{ position: [0, 0, 3], fov: 50 }}
-      style={{ background: "transparent" }}
-      dpr={[1, 1.5]}
-    >
-      <ambientLight intensity={0.6} />
-      <pointLight position={[3, 3, 3]} intensity={0.8} color="#00D4FF" />
-      {children}
-    </Canvas>
-  );
-}
-
-/* --- AI Orb --- */
-function AiOrb() {
-  const outerRef = useRef<THREE.Mesh>(null);
-  const ringRef = useRef<THREE.Mesh>(null);
-  const ring2Ref = useRef<THREE.Mesh>(null);
-  const particlesRef = useRef<THREE.Points>(null);
-
-  const particlePositions = useMemo(() => {
-    const pos = new Float32Array(300 * 3);
-    for (let i = 0; i < 300; i++) {
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const r = 1.2 + Math.random() * 0.8;
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-    }
-    return pos;
-  }, []);
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    if (outerRef.current) {
-      outerRef.current.rotation.y = t * 0.2;
-      outerRef.current.scale.setScalar(1 + Math.sin(t * 1.5) * 0.03);
-    }
-    if (ringRef.current) {
-      ringRef.current.rotation.x = t * 0.5;
-      ringRef.current.rotation.z = t * 0.3;
-    }
-    if (ring2Ref.current) {
-      ring2Ref.current.rotation.x = t * -0.3;
-      ring2Ref.current.rotation.y = t * 0.4;
-    }
-    if (particlesRef.current) {
-      particlesRef.current.rotation.y = t * 0.08;
-    }
-  });
-
-  return (
-    <>
-      <mesh>
-        <sphereGeometry args={[0.45, 32, 32]} />
-        <meshBasicMaterial color="#00D4FF" transparent opacity={0.2} />
-      </mesh>
-      <mesh ref={outerRef}>
-        <sphereGeometry args={[0.75, 32, 32]} />
-        <meshBasicMaterial color="#8B5CF6" wireframe transparent opacity={0.15} />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[1.0, 16, 16]} />
-        <meshBasicMaterial color="#00D4FF" wireframe transparent opacity={0.06} />
-      </mesh>
-      <mesh ref={ringRef}>
-        <torusGeometry args={[1.1, 0.015, 16, 64]} />
-        <meshBasicMaterial color="#00D4FF" transparent opacity={0.4} />
-      </mesh>
-      <mesh ref={ring2Ref}>
-        <torusGeometry args={[1.3, 0.01, 16, 64]} />
-        <meshBasicMaterial color="#8B5CF6" transparent opacity={0.25} />
-      </mesh>
-      <points ref={particlesRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            args={[particlePositions, 3]}
-            count={300}
-          />
-        </bufferGeometry>
-        <pointsMaterial size={0.025} color="#00D4FF" transparent opacity={0.5} sizeAttenuation />
-      </points>
-    </>
-  );
-}
-
-function OrbScene() {
-  return (
-    <Canvas
-      camera={{ position: [0, 0, 3], fov: 50 }}
-      style={{ background: "transparent" }}
-      dpr={[1, 1.5]}
-    >
-      <ambientLight intensity={0.2} />
-      <AiOrb />
-    </Canvas>
-  );
-}
-
-/* --- 3D Bar Chart --- */
-function BarChart3D() {
-  const bars = [
-    { height: 2.0, color: "#00D4FF" },
-    { height: 1.4, color: "#8B5CF6" },
-    { height: 1.1, color: "#F59E0B" },
-    { height: 0.8, color: "#10B981" },
-    { height: 0.5, color: "#00D4FF" },
-  ];
-  return (
-    <Canvas
-      camera={{ position: [3, 2, 4], fov: 45 }}
-      style={{ background: "transparent", height: 200 }}
-      dpr={[1, 1.5]}
-    >
-      <ambientLight intensity={0.5} />
-      <pointLight position={[5, 5, 5]} intensity={0.8} />
-      {bars.map((bar, i) => (
-        <Float key={i} speed={1} floatIntensity={0.1}>
-          <mesh position={[i * 0.8 - 1.6, bar.height / 2 - 0.5, 0]}>
-            <boxGeometry args={[0.5, bar.height, 0.5]} />
-            <meshStandardMaterial color={bar.color} transparent opacity={0.6} />
-          </mesh>
-        </Float>
-      ))}
-    </Canvas>
-  );
-}
-
-/* =========================================
-   ANIMATION HELPERS
-   ========================================= */
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.6,
-      ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
-    },
-  },
-};
-
-const fadeIn = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.6 } },
-};
-
-const stagger = {
-  visible: { transition: { staggerChildren: 0.12 } },
-};
-
-function AnimatedSection({
-  children,
-  className = "",
-  style = {},
+/* ─────────────────────── GLASS CARD ─────────────────────── */
+function Glass({
+  children, style, onMouseEnter, onMouseLeave,
 }: {
-  children: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
+  children: React.ReactNode; style?: React.CSSProperties;
+  onMouseEnter?: React.MouseEventHandler; onMouseLeave?: React.MouseEventHandler;
 }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
   return (
-    <motion.div
-      ref={ref}
-      className={className}
-      style={style}
-      initial="hidden"
-      animate={isInView ? "visible" : "hidden"}
-      variants={stagger}
+    <div
+      onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
+      style={{
+        background: "rgba(255,255,255,0.04)",
+        backdropFilter: "blur(24px) saturate(180%)",
+        WebkitBackdropFilter: "blur(24px) saturate(180%)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 20,
+        transition: "border-color 0.3s, background 0.3s",
+        ...style,
+      }}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 
-/* =========================================
-   TYPING ANIMATION HOOK
-   ========================================= */
+/* ─────────────────────── MARQUEE ─────────────────────── */
+const MARQUEE_ITEMS = [
+  "Data Cleaning", "EDA", "Feature Engineering", "AutoML", "XGBoost",
+  "LightGBM", "Random Forest", "Correlation Analysis", "Outlier Detection",
+  "Model Evaluation", "Predictions", "Visualizations",
+];
 
-function useTypingEffect(text: string, speed: number = 20, trigger: boolean = true) {
-  const [displayed, setDisplayed] = useState("");
-  const [done, setDone] = useState(false);
+function Marquee() {
+  return (
+    <div style={{ overflow: "hidden", padding: "15px 0", borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <motion.div
+        style={{ display: "flex", gap: 48, whiteSpace: "nowrap" }}
+        animate={{ x: [0, -2200] }}
+        transition={{ duration: 32, repeat: Infinity, ease: "linear" }}
+      >
+        {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+          <span key={i} style={{ fontSize: 10.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", fontFamily: "var(--mono)", display: "inline-flex", alignItems: "center", gap: 48 }}>
+            {item}
+            <span style={{ color: "rgba(255,255,255,0.1)" }}>×</span>
+          </span>
+        ))}
+      </motion.div>
+    </div>
+  );
+}
+
+/* ─────────────────────── ANIMATED COUNTER ─────────────────────── */
+function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
+  const [val, setVal] = useState(0);
 
   useEffect(() => {
-    if (!trigger) return;
-    setDisplayed("");
-    setDone(false);
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < text.length) {
-        setDisplayed(text.slice(0, i + 1));
+    if (!inView) return;
+    let s = 0;
+    const step = target / 60;
+    const tick = () => {
+      s = Math.min(s + step, target);
+      setVal(Math.floor(s));
+      if (s < target) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [inView, target]);
+
+  return <span ref={ref}>{val}{suffix}</span>;
+}
+
+/* ─────────────────────── TYPING LINE ─────────────────────── */
+function TypedLine({ text, delay = 0 }: { text: string; delay?: number }) {
+  const [shown, setShown] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true });
+
+  useEffect(() => {
+    if (!inView) return;
+    const timer = setTimeout(() => {
+      let i = 0;
+      const tick = setInterval(() => {
         i++;
-      } else {
-        setDone(true);
-        clearInterval(interval);
-      }
-    }, speed);
-    return () => clearInterval(interval);
-  }, [text, speed, trigger]);
+        setShown(text.slice(0, i));
+        if (i >= text.length) clearInterval(tick);
+      }, 20);
+      return () => clearInterval(tick);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [inView, text, delay]);
 
-  return { displayed, done };
+  const isDim = text.startsWith("→");
+  return (
+    <div ref={ref} style={{ fontFamily: "var(--mono)", fontSize: 12, color: isDim ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.35)", lineHeight: 1.9 }}>
+      {!isDim && <span style={{ color: "rgba(255,255,255,0.18)", marginRight: 8 }}>$</span>}
+      {isDim && <span style={{ color: "rgba(255,255,255,0.18)", marginRight: 8 }}>→</span>}
+      <span style={{ color: isDim ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.8)" }}>
+        {shown.replace(/^→\s*/, "")}
+      </span>
+      {shown.length < text.length && inView && (
+        <span style={{ borderRight: "1px solid rgba(255,255,255,0.6)", marginLeft: 1 }}>&nbsp;</span>
+      )}
+    </div>
+  );
 }
 
-/* =========================================
-   DATA
-   ========================================= */
-
-const pipelineSteps = [
-  { label: "Data Upload", desc: "CSV, Excel, JSON · Auto schema detection", Shape: RotatingCube },
-  { label: "Data Cleaning", desc: "Missing values · Outlier detection · Normalization", Shape: FunnelShape },
-  { label: "Feature Engineering", desc: "Encoding · Feature selection · Auto transforms", Shape: GearShape },
-  { label: "Model Training", desc: "AutoML · Cross-validation · Hyperparameter tuning", Shape: NeuralSphere },
-  { label: "Insights", desc: "Feature importance · Explainability · Reports", Shape: DiamondShape },
+/* ─────────────────────── HORIZONTAL PIPELINE ─────────────────────── */
+const STEPS = [
+  { n: "01", title: "Upload", sub: "CSV · Excel · JSON", icon: "↑", desc: "Drag & drop any tabular dataset. Auto schema detection, type inference, and instant preview with sample rows." },
+  { n: "02", title: "Clean", sub: "Detect · Impute · Remove", icon: "◌", desc: "Missing values, duplicate rows, outlier detection. One-click fixes or fully automated cleaning pipeline." },
+  { n: "03", title: "Analyse", sub: "EDA · Correlations", icon: "◈", desc: "Distribution plots, correlation heatmaps, feature statistics — generated automatically for every column." },
+  { n: "04", title: "Model", sub: "AutoML · Compare", icon: "⬡", desc: "Train XGBoost, LightGBM, Random Forest side by side. Pick the best automatically. R², RMSE, accuracy all tracked." },
+  { n: "05", title: "Deploy", sub: "Reports · Endpoints", icon: "→", desc: "Export insights as PDF, serve predictions via REST endpoint, or re-run the whole pipeline on fresh data." },
 ];
 
-const techStack = [
-  { name: "Next.js", icon: "⚡", color: "#ffffff" },
-  { name: "FastAPI", icon: "🚀", color: "#009688" },
-  { name: "Python", icon: "🐍", color: "#3776AB" },
-  { name: "Scikit-Learn", icon: "🔬", color: "#F7931E" },
-  { name: "PyTorch", icon: "🔥", color: "#EE4C2C" },
-  { name: "PostgreSQL", icon: "🐘", color: "#336791" },
-  { name: "Docker", icon: "🐳", color: "#2496ED" },
-];
-
-const features = [
-  { icon: "🧠", title: "Automated Insights", desc: "Machine learning models trained and evaluated automatically with zero configuration required." },
-  { icon: "⚡", title: "Real-time Analysis", desc: "Get predictions and actionable insights in milliseconds with optimized inference pipelines." },
-  { icon: "🔒", title: "Enterprise Security", desc: "SOC 2 compliant infrastructure with end-to-end encryption and data isolation." },
-  { icon: "📈", title: "Scalable Infrastructure", desc: "Handle datasets from megabytes to terabytes with auto-scaling compute resources." },
-  { icon: "🎯", title: "Custom Models", desc: "Deploy tailored machine learning models optimized for your specific business use case." },
-  { icon: "💬", title: "24/7 Support", desc: "Expert data science support team available around the clock for guidance." },
-];
-
-const stats = [
-  { number: "10x", label: "Faster Analysis" },
-  { number: "99.9%", label: "Uptime SLA" },
-  { number: "50+", label: "ML Models" },
-  { number: "< 5s", label: "Avg. Training" },
-];
-
-/* =========================================
-   MAIN PAGE COMPONENT
-   ========================================= */
-
-export default function Home() {
-  const [showResults, setShowResults] = useState(false);
-  const [uploadClicked, setUploadClicked] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  const chatRef = useRef(null);
-  const chatInView = useInView(chatRef, { once: true, margin: "-100px" });
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const agentResponse = `The prediction was driven by:
-• Overall Quality score: 8/10  (+$82k impact)
-• Lot Area: 12,000 sqft         (+$34k impact)
-• Neighborhood: NridgHt         (+$28k impact)
-• Year Built: 2005               (+$15k impact)`;
-
-  const { displayed: typedResponse, done: typingDone } = useTypingEffect(
-    agentResponse, 15, chatInView
-  );
-
-  const handleUploadClick = () => {
-    if (uploadClicked) return;
-    setUploadClicked(true);
-    setTimeout(() => setShowResults(true), 1500);
-  };
-
-  const metrics = [
-    { label: "Problem Type", value: "Regression", pct: 100 },
-    { label: "Best Model", value: "XGBoost", pct: 100 },
-    { label: "R² Score", value: "0.913", pct: 91 },
-    { label: "RMSE", value: "$18,420", pct: 82 },
-    { label: "Training Time", value: "4.2 seconds", pct: 95 },
-  ];
+function HorizontalPipeline() {
+  const container = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: container, offset: ["start start", "end start"] });
+  const x = useTransform(scrollYProgress, [0, 1], ["0%", `-${(STEPS.length - 1) * 24}%`]);
 
   return (
-    <main>
-      {/* ============ NAVBAR ============ */}
+    <section ref={container} style={{ height: `${STEPS.length * 100}vh`, position: "relative" }}>
+      <div style={{ position: "sticky", top: 0, height: "100vh", overflow: "hidden", display: "flex", alignItems: "center" }}>
+        <div style={{ position: "absolute", top: 36, left: 40, zIndex: 10 }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", fontFamily: "var(--mono)" }}>Pipeline — scroll to explore</div>
+        </div>
+
+        <motion.div style={{ x, display: "flex", gap: 20, paddingLeft: "10vw", willChange: "transform" }}>
+          {STEPS.map((step, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: i * 0.06 }}
+              viewport={{ once: true }}
+              style={{ flexShrink: 0, width: "22vw", minWidth: 290 }}
+            >
+              <Glass style={{ padding: "44px 38px", height: 400, display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 55%)", borderRadius: 20, pointerEvents: "none" }} />
+                <div style={{ fontSize: 10.5, letterSpacing: "0.16em", color: "rgba(255,255,255,0.2)", fontFamily: "var(--mono)", marginBottom: 36 }}>{step.n}</div>
+                <div style={{ fontSize: 56, lineHeight: 1, marginBottom: 28, color: "rgba(255,255,255,0.12)", fontWeight: 300 }}>{step.icon}</div>
+                <div style={{ fontFamily: "var(--serif)", fontSize: 30, fontWeight: 400, color: "#fff", letterSpacing: "-0.03em", marginBottom: 6 }}>{step.title}</div>
+                <div style={{ fontSize: 10, letterSpacing: "0.12em", color: "rgba(255,255,255,0.28)", textTransform: "uppercase", fontFamily: "var(--mono)", marginBottom: 24 }}>{step.sub}</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.75, marginTop: "auto" }}>{step.desc}</div>
+              </Glass>
+            </motion.div>
+          ))}
+          {/* Extra spacer card */}
+          <div style={{ flexShrink: 0, width: "10vw" }} />
+        </motion.div>
+
+        {/* Step progress dots */}
+        <div style={{ position: "absolute", bottom: 36, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6 }}>
+          {STEPS.map((_, i) => (
+            <div key={i} style={{ width: 20, height: 2, borderRadius: 1, background: "rgba(255,255,255,0.2)" }} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────── FEATURE DATA ─────────────────────── */
+const FEATURES = [
+  { title: "AI Analyst Chat", body: "Ask questions about your data in plain English. GPT-4o with full tool-calling runs the actual analyses — no hallucinations, real results.", tag: "LLM" },
+  { title: "Pipeline Builder", body: "Compose reusable workflows visually. AI suggests steps based on your dataset. Save, re-run on new data, view run history.", tag: "Builder" },
+  { title: "AutoML", body: "Select a target column. DSAgent detects regression vs classification, trains 3 models, compares them, and surfaces the winner.", tag: "ML" },
+  { title: "Explainability", body: "Feature importance, correlation heatmaps, and natural-language summaries baked into every analysis. No black boxes.", tag: "XAI" },
+  { title: "Session Memory", body: "Every upload, chat, and pipeline is persisted to PostgreSQL. Resume mid-analysis or reload a conversation weeks later.", tag: "Persistence" },
+  { title: "Dark Charts", body: "Histograms, scatter plots, correlation heatmaps, box plots — all styled in dark mode via matplotlib + imshow. PNG export.", tag: "Viz" },
+];
+
+/* ─────────────────────── DEMO TERMINAL LINES ─────────────────────── */
+const DEMO_LINES = [
+  { text: "dsagent upload HousePrices.csv", delay: 300 },
+  { text: "→ 4,600 rows · 18 columns detected", delay: 900 },
+  { text: "→ Numeric: price, bedrooms, bathrooms, sqft…", delay: 1500 },
+  { text: "dsagent suggest --all", delay: 2400 },
+  { text: "→ 5 pipeline steps recommended by AI", delay: 3100 },
+  { text: "dsagent run --pipeline auto", delay: 4000 },
+  { text: "→ [1/5] dataset_overview      ✓  38ms", delay: 4700 },
+  { text: "→ [2/5] correlation_analysis  ✓  51ms", delay: 5300 },
+  { text: "→ [3/5] detect_outliers       ✓  29ms", delay: 5900 },
+  { text: "→ [4/5] create_histogram      ✓  329ms", delay: 6500 },
+  { text: "→ [5/5] auto_ml_pipeline      ✓  4.2s", delay: 7400 },
+  { text: "→ Best: XGBoost  R²=0.913  RMSE=$18,420", delay: 8200 },
+];
+
+/* ─────────────────────── MAIN EXPORT ─────────────────────── */
+export default function Home() {
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: heroScroll } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+  const heroY = useTransform(heroScroll, [0, 1], [0, 100]);
+  const heroOp = useTransform(heroScroll, [0, 0.65], [1, 0]);
+
+  const [navScrolled, setNavScrolled] = useState(false);
+  useEffect(() => {
+    const fn = () => setNavScrolled(window.scrollY > 70);
+    window.addEventListener("scroll", fn);
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&family=Geist:wght@300;400;500;600;700&display=swap');
+        :root {
+          --serif: 'Instrument Serif', Georgia, serif;
+          --mono: 'JetBrains Mono', monospace;
+          --sans: 'Geist', system-ui, sans-serif;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; cursor: none; }
+        body { background: #080808; color: #f0f0f0; font-family: var(--sans); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+        ::selection { background: rgba(255,255,255,0.12); }
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: #080808; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        @keyframes float-a { 0%,100%{transform:translateY(0)rotate(0deg)} 50%{transform:translateY(-14px)rotate(1deg)} }
+        @keyframes float-b { 0%,100%{transform:translateY(0)rotate(0deg)} 50%{transform:translateY(-20px)rotate(-1.5deg)} }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes spin-slow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      `}</style>
+
+      <Grain />
+      <Cursor />
+
+      {/* ──────────────────────────── NAV ──────────────────────────── */}
       <motion.nav
-        className="navbar"
-        initial={{ y: -100, opacity: 0 }}
+        initial={{ y: -70, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.3 }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         style={{
-          background: scrolled
-            ? "rgba(3, 7, 18, 0.85)"
-            : "rgba(3, 7, 18, 0.4)",
+          position: "fixed", top: 14, left: "50%", transform: "translateX(-50%)",
+          zIndex: 1000, width: "calc(100% - 40px)", maxWidth: 880,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "11px 18px",
+          background: navScrolled ? "rgba(8,8,8,0.88)" : "rgba(255,255,255,0.03)",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+          border: `1px solid ${navScrolled ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.06)"}`,
+          borderRadius: 100,
+          transition: "background 0.4s, border-color 0.4s",
         }}
       >
-        <span className="navbar-logo">DSAgent</span>
-        <div className="navbar-links">
-          <a href="#pipeline" className="navbar-link">Pipeline</a>
-          <a href="#demo" className="navbar-link">Demo</a>
-          <a href="#features" className="navbar-link">Features</a>
-          <a href="#tech" className="navbar-link">Stack</a>
+        <div style={{ fontFamily: "var(--serif)", fontSize: 18, color: "#fff", letterSpacing: "-0.01em" }}>DSAgent</div>
+
+        <div style={{ display: "flex", gap: 4 }}>
+          {["Pipeline", "Features", "Demo"].map(label => (
+            <a key={label} href={`#${label.toLowerCase()}`} data-hover style={{
+              fontSize: 12, color: "rgba(255,255,255,0.4)", textDecoration: "none",
+              padding: "6px 13px", borderRadius: 100, letterSpacing: "0.01em",
+              transition: "color 0.2s, background 0.2s",
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#fff"; (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.07)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.4)"; (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}
+            >{label}</a>
+          ))}
         </div>
-        <Link href="/dashboard" className="navbar-cta">
-          Get Started
+
+        <Link href="/dashboard" data-hover style={{
+          fontSize: 12, fontWeight: 600, color: "#080808", background: "#fff",
+          padding: "8px 18px", borderRadius: 100, textDecoration: "none",
+          letterSpacing: "-0.01em", transition: "opacity 0.2s",
+        }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
+          onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+        >
+          Dashboard →
         </Link>
       </motion.nav>
 
-      {/* ============ HERO ============ */}
-      <section className="section" style={{ padding: 0 }}>
-        <div className="liquid-blobs">
-          <div className="liquid-blob liquid-blob-1" />
-          <div className="liquid-blob liquid-blob-2" />
-          <div className="liquid-blob liquid-blob-3" />
-        </div>
-        <div className="hero-canvas-container" style={{ zIndex: 0, pointerEvents: "none" }}>
-          <HeroScene />
-        </div>
-        <div className="hero-overlay">
-          <motion.div
-            className="hero-badge"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <span className="hero-badge-dot" />
-            Now in Public Beta
+      {/* ──────────────────────────── HERO ──────────────────────────── */}
+      <section ref={heroRef} style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "120px 24px 80px", position: "relative", overflow: "hidden" }}>
+
+        {/* Background grid */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.025, backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "80px 80px" }} />
+
+        {/* Central glow */}
+        <div style={{ position: "absolute", top: "35%", left: "50%", transform: "translate(-50%,-50%)", width: 700, height: 700, background: "radial-gradient(circle,rgba(255,255,255,0.035) 0%,transparent 65%)", pointerEvents: "none" }} />
+
+        <motion.div style={{ y: heroY, opacity: heroOp, textAlign: "center", maxWidth: 880, position: "relative", zIndex: 2 }}>
+
+          {/* Status pill */}
+          <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}
+            style={{ display: "inline-flex", alignItems: "center", marginBottom: 44 }}>
+            <Glass style={{ padding: "6px 16px", borderRadius: 100, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.7)", boxShadow: "0 0 0 0 rgba(255,255,255,0.3)", animation: "pulse-dot 2.5s ease-out infinite" }} />
+              <span style={{ fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", fontFamily: "var(--mono)" }}>Public Beta</span>
+            </Glass>
           </motion.div>
 
+          {/* Headline */}
           <motion.h1
-            className="hero-title"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              fontFamily: "var(--serif)", fontSize: "clamp(52px, 9.5vw, 108px)",
+              fontWeight: 400, lineHeight: 0.96, letterSpacing: "-0.04em", color: "#fff", marginBottom: 10,
+            }}
           >
-            DSAgent
+            Your Autonomous
+          </motion.h1>
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.32, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              fontFamily: "var(--serif)", fontSize: "clamp(52px, 9.5vw, 108px)",
+              fontWeight: 400, lineHeight: 0.96, letterSpacing: "-0.04em",
+              color: "rgba(255,255,255,0.32)", fontStyle: "italic", marginBottom: 40,
+            }}
+          >
+            Data Scientist
           </motion.h1>
 
           <motion.p
-            className="hero-subtitle"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
+            transition={{ duration: 0.7, delay: 0.5 }}
+            style={{ fontSize: 16, color: "rgba(255,255,255,0.38)", lineHeight: 1.7, maxWidth: 480, margin: "0 auto 48px" }}
           >
-            Your Autonomous Data Scientist
+            Upload a CSV — get data cleaning, analysis, visualizations, and trained ML models automatically. AI explains every step.
           </motion.p>
 
-          <motion.p
-            className="hero-desc"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.8 }}
-          >
-            Upload a dataset and get insights, models, and production-ready reports —
-            fully automated with explainable AI.
-          </motion.p>
-
+          {/* CTAs */}
           <motion.div
-            className="hero-buttons"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 1.0 }}
+            transition={{ duration: 0.7, delay: 0.62 }}
+            style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 72 }}
           >
-            <button className="btn btn-cyan">
-              <span>📤</span> Upload Dataset
+            <Link href="/dashboard" data-hover style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              padding: "13px 28px", borderRadius: 100,
+              background: "#fff", color: "#080808",
+              fontSize: 13, fontWeight: 600, textDecoration: "none", letterSpacing: "-0.01em",
+              transition: "opacity 0.2s, transform 0.2s",
+            }}
+              onMouseEnter={e => { (e.currentTarget).style.opacity = "0.9"; (e.currentTarget).style.transform = "translateY(-1px)"; }}
+              onMouseLeave={e => { (e.currentTarget).style.opacity = "1"; (e.currentTarget).style.transform = "translateY(0)"; }}
+            >
+              Start Analysing <span style={{ opacity: 0.45 }}>→</span>
+            </Link>
+            <button data-hover style={{
+              display: "inline-flex", alignItems: "center", gap: 7, padding: "12px 26px",
+              borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+              color: "rgba(255,255,255,0.65)", fontSize: 13, cursor: "pointer", letterSpacing: "-0.01em",
+              transition: "border-color 0.2s, color 0.2s",
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.22)"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.65)"; }}
+            >
+              ▶ Watch Demo
             </button>
-            <button className="btn btn-glass">▶ Watch Demo</button>
-            <a
-              href="https://github.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-glass"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-              </svg>
-              GitHub
-            </a>
           </motion.div>
 
-          {/* Stats Row */}
+          {/* Stats row */}
           <motion.div
-            className="stats-bar"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 1.3 }}
-            style={{ marginTop: 80, width: "100%", maxWidth: 700 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.95 }}
+            style={{ display: "flex", justifyContent: "center", gap: 56, flexWrap: "wrap" }}
           >
-            {stats.map((stat, i) => (
-              <div key={i} className="stat-item">
-                <div className="stat-number">{stat.number}</div>
-                <div className="stat-label">{stat.label}</div>
+            {[
+              { value: 50, suffix: "+", label: "ML Tools" },
+              { value: 10, suffix: "x", label: "Faster Analysis" },
+              { value: 99, suffix: ".9%", label: "Uptime" },
+              { value: 5, suffix: "s avg", label: "Training Time" },
+            ].map((s, i) => (
+              <div key={i} style={{ textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--serif)", fontSize: 34, color: "#fff", letterSpacing: "-0.04em" }}>
+                  <Counter target={s.value} suffix={s.suffix} />
+                </div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "var(--mono)", marginTop: 4 }}>{s.label}</div>
               </div>
             ))}
           </motion.div>
-        </div>
-      </section>
+        </motion.div>
 
-      {/* ============ PIPELINE ============ */}
-      <section className="section" id="pipeline">
-        <div className="liquid-blobs">
-          <div className="liquid-blob liquid-blob-2" style={{ top: "10%", left: "20%" }} />
-          <div className="liquid-blob liquid-blob-3" style={{ bottom: "10%", right: "10%" }} />
-        </div>
-        <AnimatedSection className="section-inner">
-          <motion.p variants={fadeUp} className="section-label">
-            How It Works
-          </motion.p>
-          <motion.h2 variants={fadeUp} className="section-title">
-            Intelligent Pipeline
-          </motion.h2>
-          <motion.p variants={fadeUp} className="section-subtitle">
-            From raw data to production insights — every step is automated,
-            optimized, and fully explainable.
-          </motion.p>
-          <motion.div variants={fadeUp} className="pipeline-wrapper">
-            {pipelineSteps.map((step, i) => (
-              <React.Fragment key={i}>
-                <motion.div
-                  className="pipeline-node"
-                  variants={fadeUp}
-                  whileHover={{ scale: 1.06 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                >
-                  <div className="pipeline-3d-container">
-                    <MiniPipelineCanvas>
-                      <step.Shape />
-                    </MiniPipelineCanvas>
-                  </div>
-                  <div className="pipeline-label">{step.label}</div>
-                  <div className="pipeline-desc">{step.desc}</div>
-                </motion.div>
-                {i < pipelineSteps.length - 1 && (
-                  <div className="pipeline-connector" />
-                )}
-              </React.Fragment>
+        {/* Floating card — model result */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.88, x: 20 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          transition={{ duration: 1, delay: 0.7 }}
+          style={{ position: "absolute", right: "6%", top: "22%", animation: "float-a 8s ease-in-out infinite" }}
+        >
+          <Glass style={{ width: 210, padding: "18px 20px", borderRadius: 16 }}>
+            <div style={{ fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.22)", fontFamily: "var(--mono)", marginBottom: 14 }}>Latest Run</div>
+            {[["Model", "XGBoost"], ["R²", "0.913"], ["RMSE", "$18,420"], ["Status", "✓ Done"]].map(([k, v], i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
+                <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.28)", fontFamily: "var(--mono)" }}>{k}</span>
+                <span style={{ fontSize: 10.5, color: i === 0 ? "#fff" : `rgba(255,255,255,${0.85 - i * 0.15})`, fontFamily: "var(--mono)", fontWeight: 500 }}>{v}</span>
+              </div>
             ))}
-          </motion.div>
-        </AnimatedSection>
-      </section>
+          </Glass>
+        </motion.div>
 
-      {/* ============ AI CHAT DEMO ============ */}
-      <section className="section" ref={chatRef}>
-        <div className="liquid-blobs">
-          <div className="liquid-blob liquid-blob-1" style={{ top: "30%", right: "5%" }} />
-          <div className="liquid-blob liquid-blob-3" style={{ top: "60%", left: "5%" }} />
-        </div>
-        <AnimatedSection className="section-inner">
-          <motion.p variants={fadeUp} className="section-label">
-            AI Agent
-          </motion.p>
-          <motion.h2 variants={fadeUp} className="section-title">
-            Ask Your Data Anything
-          </motion.h2>
-          <motion.p variants={fadeUp} className="section-subtitle">
-            Get explainable, context-aware answers from your AI data scientist —
-            powered by advanced language models.
-          </motion.p>
-          <motion.div variants={fadeUp} className="chat-section">
-            <div className="orb-container">
-              <OrbScene />
+        {/* Floating card — pipeline */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.88, x: -20 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          transition={{ duration: 1, delay: 0.85 }}
+          style={{ position: "absolute", left: "5%", bottom: "16%", animation: "float-b 10s ease-in-out infinite 2s" }}
+        >
+          <Glass style={{ padding: "14px 18px", borderRadius: 14, maxWidth: 230 }}>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10.5, lineHeight: 2, color: "rgba(255,255,255,0.28)" }}>
+              <div><span style={{ color: "rgba(255,255,255,0.16)" }}>$</span><span style={{ color: "rgba(255,255,255,0.75)", marginLeft: 6 }}>dsagent suggest</span></div>
+              <div style={{ color: "rgba(255,255,255,0.5)" }}>→ 5 steps ready</div>
+              <div><span style={{ color: "rgba(255,255,255,0.16)" }}>$</span><span style={{ color: "rgba(255,255,255,0.75)", marginLeft: 6 }}>dsagent run</span></div>
+              <div style={{ color: "rgba(255,255,255,0.5)" }}>→ Pipeline complete<span style={{ animation: "blink 1s infinite" }}>_</span></div>
             </div>
-            <div className="chat-window">
-              <div className="chat-header">
-                <div className="chat-header-dot" />
-                DSAgent Terminal
-              </div>
-              <div className="chat-body">
-                <div className="chat-bubble chat-bubble-user">
-                  <span className="chat-bubble-label">You</span>
-                  Why did the model predict $450,000 for this house?
-                </div>
-                <div className="chat-bubble chat-bubble-agent">
-                  <span className="chat-bubble-label">DSAgent</span>
-                  <span style={{ whiteSpace: "pre-wrap" }}>{typedResponse}</span>
-                  {!typingDone && <span className="typing-cursor" />}
-                  {typingDone && (
-                    <div className="chat-confidence">
-                      Confidence: 94.2% &nbsp;·&nbsp; Model: XGBoost
-                    </div>
-                  )}
-                </div>
-              </div>
+          </Glass>
+        </motion.div>
+
+        {/* Spinning ring decoration */}
+        <div style={{ position: "absolute", bottom: "10%", right: "12%", width: 80, height: 80, border: "1px solid rgba(255,255,255,0.06)", borderRadius: "50%", animation: "spin-slow 20s linear infinite", pointerEvents: "none" }}>
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 50, height: 50, border: "1px solid rgba(255,255,255,0.04)", borderRadius: "50%" }} />
+        </div>
+      </section>
+
+      {/* ──────────────────────────── MARQUEE ──────────────────────────── */}
+      <Marquee />
+
+      {/* ──────────────────────────── PIPELINE ──────────────────────────── */}
+      <div id="pipeline">
+        <HorizontalPipeline />
+      </div>
+
+      {/* ──────────────────────────── TERMINAL DEMO ──────────────────────────── */}
+      <section id="demo" style={{ padding: "120px 24px", maxWidth: 840, margin: "0 auto" }}>
+        <motion.div initial={{ opacity: 0, y: 28 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} style={{ marginBottom: 44 }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", fontFamily: "var(--mono)", marginBottom: 16 }}>Live Demo</div>
+          <h2 style={{ fontFamily: "var(--serif)", fontSize: "clamp(36px, 5vw, 58px)", fontWeight: 400, letterSpacing: "-0.03em", color: "#fff", lineHeight: 1.05 }}>
+            See it work in<br /><em style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>real time</em>
+          </h2>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2 }}>
+          <Glass style={{ borderRadius: 16, overflow: "hidden" }}>
+            <div style={{ padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: 8 }}>
+              {[0.12, 0.07, 0.05].map((o, i) => (
+                <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: `rgba(255,255,255,${o})` }} />
+              ))}
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.18)", fontFamily: "var(--mono)", marginLeft: 8, letterSpacing: "0.1em" }}>dsagent — terminal</span>
             </div>
-          </motion.div>
-        </AnimatedSection>
+            <div style={{ padding: "22px 24px 28px" }}>
+              {DEMO_LINES.map((line, i) => (
+                <TypedLine key={i} text={line.text} delay={line.delay} />
+              ))}
+            </div>
+          </Glass>
+        </motion.div>
       </section>
 
-      {/* ============ LIVE DEMO ============ */}
-      <section className="section" id="demo">
-        <div className="liquid-blobs">
-          <div className="liquid-blob liquid-blob-2" style={{ bottom: "0%", left: "30%" }} />
-        </div>
-        <AnimatedSection className="section-inner">
-          <motion.p variants={fadeUp} className="section-label">
-            Try It Now
-          </motion.p>
-          <motion.h2 variants={fadeUp} className="section-title">
-            Live Demo Preview
-          </motion.h2>
-          <motion.p variants={fadeUp} className="section-subtitle">
-            Experience the power of automated data science — upload a dataset
-            and watch DSAgent work.
-          </motion.p>
+      {/* ──────────────────────────── FEATURES ──────────────────────────── */}
+      <section id="features" style={{ padding: "40px 24px 120px", maxWidth: 1080, margin: "0 auto" }}>
+        <motion.div initial={{ opacity: 0, y: 28 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ marginBottom: 52 }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", fontFamily: "var(--mono)", marginBottom: 16 }}>Capabilities</div>
+          <h2 style={{ fontFamily: "var(--serif)", fontSize: "clamp(36px, 5vw, 58px)", fontWeight: 400, letterSpacing: "-0.03em", color: "#fff", lineHeight: 1.05 }}>
+            Everything built<br /><em style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>in</em>
+          </h2>
+        </motion.div>
 
-          <motion.div variants={fadeUp} style={{ maxWidth: 680, margin: "0 auto" }}>
-            <motion.div
-              className="upload-zone"
-              onClick={handleUploadClick}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-            >
-              <div className="upload-icon">
-                {uploadClicked ? "⏳" : "📁"}
-              </div>
-              <div style={{
-                fontFamily: "var(--font-heading)",
-                fontSize: "0.95rem",
-                fontWeight: 600,
-                color: uploadClicked ? "var(--text)" : "var(--cyan)",
-                marginBottom: 8,
-              }}>
-                {uploadClicked ? "Processing dataset..." : "Drop your dataset here"}
-              </div>
-              <div style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "0.85rem",
-                color: "var(--text-muted)",
-              }}>
-                {uploadClicked
-                  ? "Running automated analysis pipeline"
-                  : "CSV, Excel, JSON — up to 500MB"}
-              </div>
-              {uploadClicked && !showResults && (
-                <motion.div
-                  style={{
-                    marginTop: 20,
-                    height: 3,
-                    background: "rgba(255,255,255,0.04)",
-                    borderRadius: 2,
-                    overflow: "hidden",
-                  }}
-                >
-                  <motion.div
-                    style={{
-                      height: "100%",
-                      background: "linear-gradient(90deg, var(--cyan), var(--violet))",
-                      borderRadius: 2,
-                      boxShadow: "0 0 12px rgba(0, 212, 255, 0.4)",
-                    }}
-                    initial={{ width: "0%" }}
-                    animate={{ width: "100%" }}
-                    transition={{ duration: 1.5, ease: "easeInOut" }}
-                  />
-                </motion.div>
-              )}
-            </motion.div>
-
-            {showResults && (
-              <motion.div
-                className="result-card"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-              >
-                <div className="result-header">Ames Housing Dataset</div>
-                <div className="result-subheader">1,460 rows · 81 features · Auto-detected regression task</div>
-                <div className="result-divider" />
-
-                {metrics.map((m, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.15, duration: 0.4 }}
-                  >
-                    <div className="metric-row">
-                      <span className="metric-label">{m.label}</span>
-                      <span className="metric-value">
-                        {m.value} <span className="metric-check">✓</span>
-                      </span>
-                    </div>
-                    <div className="metric-bar-bg">
-                      <motion.div
-                        className="metric-bar-fill"
-                        initial={{ width: "0%" }}
-                        animate={{ width: `${m.pct}%` }}
-                        transition={{ delay: i * 0.15 + 0.3, duration: 0.8, ease: "easeOut" }}
-                      />
-                    </div>
-                  </motion.div>
-                ))}
-
-                <div style={{ marginTop: 28 }}>
-                  <div style={{
-                    fontFamily: "var(--font-heading)",
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    marginBottom: 8,
-                  }}>
-                    Feature Importance
-                  </div>
-                  <BarChart3D />
-                </div>
-              </motion.div>
-            )}
-          </motion.div>
-        </AnimatedSection>
-      </section>
-
-      {/* ============ FEATURES ============ */}
-      <section className="section" id="features">
-        <div className="liquid-blobs">
-          <div className="liquid-blob liquid-blob-1" style={{ top: "20%", right: "15%" }} />
-          <div className="liquid-blob liquid-blob-2" style={{ bottom: "20%", left: "10%" }} />
-        </div>
-        <AnimatedSection className="section-inner">
-          <motion.p variants={fadeUp} className="section-label">
-            Capabilities
-          </motion.p>
-          <motion.h2 variants={fadeUp} className="section-title">
-            Enterprise-Grade Analytics
-          </motion.h2>
-          <motion.p variants={fadeUp} className="section-subtitle">
-            Everything you need to harness the power of intelligent data science at any scale.
-          </motion.p>
-        </AnimatedSection>
-        <AnimatedSection className="features-grid" style={{ position: "relative", zIndex: 2 }}>
-          {features.map((item, i) => (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+          {FEATURES.map((f, i) => (
             <motion.div
               key={i}
-              className="feature-card liquid-glass-shine"
-              variants={fadeUp}
-              whileHover={{ y: -6 }}
-              transition={{ type: "spring", stiffness: 300 }}
+              initial={{ opacity: 0, y: 22 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: i * 0.07 }}
             >
-              <div className="feature-icon">{item.icon}</div>
-              <div className="feature-title">{item.title}</div>
-              <div className="feature-desc">{item.desc}</div>
-            </motion.div>
-          ))}
-        </AnimatedSection>
-      </section>
-
-      {/* ============ TECH STACK ============ */}
-      <section className="section" id="tech">
-        <div className="liquid-blobs">
-          <div className="liquid-blob liquid-blob-3" style={{ top: "30%", left: "50%" }} />
-        </div>
-        <AnimatedSection className="section-inner">
-          <motion.p variants={fadeUp} className="section-label">
-            Technology
-          </motion.p>
-          <motion.h2 variants={fadeUp} className="section-title">
-            Built for Performance
-          </motion.h2>
-          <motion.p variants={fadeUp} className="section-subtitle">
-            Powered by battle-tested technologies for reliability, speed, and scale.
-          </motion.p>
-          <motion.div variants={fadeUp} className="tech-grid">
-            {techStack.map((tech, i) => (
-              <motion.div
-                key={i}
-                className="tech-card liquid-glass-shine"
-                variants={fadeUp}
-                whileHover={{
-                  scale: 1.05,
-                  borderColor: `${tech.color}33`,
-                  boxShadow: `0 8px 32px ${tech.color}15`,
+              <Glass
+                data-hover
+                style={{ padding: "26px 26px 30px", height: "100%", position: "relative", overflow: "hidden" }}
+                onMouseEnter={(e: React.MouseEvent) => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.14)";
+                  (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.055)";
+                }}
+                onMouseLeave={(e: React.MouseEvent) => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.08)";
+                  (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)";
                 }}
               >
-                <span className="tech-icon">{tech.icon}</span>
-                <span className="tech-name" style={{ color: tech.color }}>
-                  {tech.name}
-                </span>
-              </motion.div>
-            ))}
-          </motion.div>
-        </AnimatedSection>
-      </section>
-
-      {/* ============ CTA ============ */}
-      <section className="section">
-        <div className="gradient-mesh-bg" />
-        <div className="liquid-blobs">
-          <div className="liquid-blob liquid-blob-1" />
-          <div className="liquid-blob liquid-blob-2" />
-          <div className="liquid-blob liquid-blob-3" />
+                <div style={{ position: "absolute", top: 18, right: 18 }}>
+                  <div style={{ padding: "3px 9px", borderRadius: 100, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", fontFamily: "var(--mono)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(8px)" }}>{f.tag}</div>
+                </div>
+                <div style={{ fontFamily: "var(--serif)", fontSize: 22, color: "#fff", letterSpacing: "-0.02em", marginBottom: 12 }}>{f.title}</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", lineHeight: 1.72 }}>{f.body}</div>
+              </Glass>
+            </motion.div>
+          ))}
         </div>
-        <AnimatedSection className="section-inner cta-section">
-          <motion.p variants={fadeUp} className="section-label">
-            Get Started
-          </motion.p>
-          <motion.h2 variants={fadeUp} className="cta-title">
-            Start Analyzing Data<br />in Seconds
-          </motion.h2>
-          <motion.p variants={fadeUp} className="cta-text">
-            No code. No configuration. Upload your dataset and let DSAgent handle the rest.
-          </motion.p>
-          <motion.div
-            variants={fadeUp}
-            style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}
-          >
-            <button className="btn btn-cyan">Get Started Free</button>
-            <button className="btn btn-glass">Read the Docs</button>
-          </motion.div>
-        </AnimatedSection>
       </section>
 
-      {/* ============ FOOTER ============ */}
-      <footer className="footer">
-        <div className="footer-inner">
-          <div>
-            <div className="footer-brand">DSAgent</div>
-            <p className="footer-tagline">
-              Your autonomous AI data scientist. Upload a dataset,
-              get insights — automatically.
+      {/* ──────────────────────────── TECH SPLIT ──────────────────────────── */}
+      <section style={{ padding: "80px 24px 120px", borderTop: "1px solid rgba(255,255,255,0.05)", maxWidth: 1080, margin: "0 auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+          <motion.div initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", fontFamily: "var(--mono)", marginBottom: 16 }}>Stack</div>
+            <h2 style={{ fontFamily: "var(--serif)", fontSize: "clamp(32px, 4vw, 50px)", fontWeight: 400, letterSpacing: "-0.03em", color: "#fff", lineHeight: 1.08, marginBottom: 22 }}>
+              Built on tools<br /><em style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>you already trust</em>
+            </h2>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.36)", lineHeight: 1.75, maxWidth: 360 }}>
+              Next.js 15, FastAPI, PostgreSQL via Prisma, Clerk auth — and GPT-4o via Bytez powering every intelligent decision.
             </p>
-          </div>
-          <div>
-            <div className="footer-col-title">Product</div>
-            <a href="#" className="footer-link">Features</a>
-            <a href="#" className="footer-link">Pricing</a>
-            <a href="#" className="footer-link">Changelog</a>
-            <a href="#" className="footer-link">Roadmap</a>
-          </div>
-          <div>
-            <div className="footer-col-title">Resources</div>
-            <a href="#" className="footer-link">Documentation</a>
-            <a href="#" className="footer-link">API Reference</a>
-            <a href="#" className="footer-link">Blog</a>
-            <a href="#" className="footer-link">Community</a>
-          </div>
-          <div>
-            <div className="footer-col-title">Company</div>
-            <a href="#" className="footer-link">About</a>
-            <a href="#" className="footer-link">Careers</a>
-            <a href="#" className="footer-link">Privacy</a>
-            <a href="#" className="footer-link">Terms</a>
-          </div>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, x: 24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.7, delay: 0.1 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {[
+                ["Next.js 15", "Frontend"], ["FastAPI", "Backend"],
+                ["GPT-4o", "Intelligence"], ["PostgreSQL", "Database"],
+                ["XGBoost", "ML Engine"], ["LightGBM", "ML Engine"],
+                ["Prisma", "ORM"], ["Clerk", "Auth"],
+              ].map(([name, role], i) => (
+                <motion.div key={i} initial={{ opacity: 0, scale: 0.94 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.04 }}>
+                  <Glass
+                    data-hover
+                    style={{ padding: "13px 15px" }}
+                    onMouseEnter={(e: React.MouseEvent) => {
+                      (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.15)";
+                      (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.07)";
+                    }}
+                    onMouseLeave={(e: React.MouseEvent) => {
+                      (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.08)";
+                      (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)";
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", letterSpacing: "-0.02em" }}>{name}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.26)", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--mono)", marginTop: 3 }}>{role}</div>
+                  </Glass>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
         </div>
-        <div className="footer-bottom">
-          <span className="footer-copyright">
-            © 2024 DSAgent. All rights reserved.
-          </span>
-          <div className="footer-socials">
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="footer-social-link">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-              </svg>
-            </a>
-            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="footer-social-link">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-            </a>
-            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="footer-social-link">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-              </svg>
-            </a>
-          </div>
+      </section>
+
+      {/* ──────────────────────────── CTA ──────────────────────────── */}
+      <section style={{ padding: "80px 24px 140px", textAlign: "center", position: "relative", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 500, height: 500, background: "radial-gradient(circle,rgba(255,255,255,0.032) 0%,transparent 65%)", pointerEvents: "none" }} />
+        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }} style={{ position: "relative", zIndex: 2 }}>
+          <h2 style={{ fontFamily: "var(--serif)", fontSize: "clamp(48px, 9vw, 96px)", fontWeight: 400, letterSpacing: "-0.04em", color: "#fff", lineHeight: 0.96, marginBottom: 28 }}>
+            Start in<br /><em style={{ color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>seconds</em>
+          </h2>
+          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.32)", marginBottom: 44, maxWidth: 380, margin: "0 auto 44px" }}>
+            No code. No configuration. Upload your dataset and let DSAgent handle the rest.
+          </p>
+          <Link href="/dashboard" data-hover style={{
+            display: "inline-flex", alignItems: "center", gap: 10,
+            padding: "14px 34px", borderRadius: 100, background: "#fff", color: "#080808",
+            fontSize: 14, fontWeight: 600, textDecoration: "none", letterSpacing: "-0.01em",
+            transition: "opacity 0.2s, transform 0.2s",
+          }}
+            onMouseEnter={e => { (e.currentTarget).style.opacity = "0.9"; (e.currentTarget).style.transform = "scale(1.02)"; }}
+            onMouseLeave={e => { (e.currentTarget).style.opacity = "1"; (e.currentTarget).style.transform = "scale(1)"; }}
+          >
+            Open DSAgent <span style={{ opacity: 0.38 }}>→</span>
+          </Link>
+        </motion.div>
+      </section>
+
+      {/* ──────────────────────────── FOOTER ──────────────────────────── */}
+      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "32px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14, maxWidth: 1080, margin: "0 auto" }}>
+        <div style={{ fontFamily: "var(--serif)", fontSize: 17, color: "rgba(255,255,255,0.4)" }}>DSAgent</div>
+        <div style={{ display: "flex", gap: 24 }}>
+          {["Features", "Pipeline", "Dashboard", "GitHub"].map(l => (
+            <a key={l} href="#" data-hover style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none", letterSpacing: "0.02em", transition: "color 0.2s" }}
+              onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.65)"}
+              onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.22)"}
+            >{l}</a>
+          ))}
         </div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", fontFamily: "var(--mono)" }}>© 2025 DSAgent</div>
       </footer>
-    </main>
+
+      <style>{`
+        @keyframes pulse-dot {
+          0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.35); }
+          70% { box-shadow: 0 0 0 8px rgba(255,255,255,0); }
+          100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+        }
+      `}</style>
+    </>
   );
 }
