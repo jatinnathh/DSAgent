@@ -1,8 +1,9 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
-export default function ViewChart() {
+function ChartContent() {
   const params = useSearchParams()
   const src = params.get("src")
 
@@ -32,5 +33,13 @@ export default function ViewChart() {
         }}
       />
     </div>
+  )
+}
+
+export default function ViewChart() {
+  return (
+    <Suspense fallback={<div style={{padding: 40}}>Loading chart...</div>}>
+      <ChartContent />
+    </Suspense>
   )
 }
