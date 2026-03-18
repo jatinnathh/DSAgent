@@ -159,7 +159,7 @@ function ColDropdown({
   const [open, setOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
-  const portalId = useRef(`col-dp-${Math.random().toString(36).slice(2)}`);
+  const portalId = useRef<string>(`col-dp-${Math.random().toString(36).slice(2)}`);
 
   const openDropdown = () => {
     if (!btnRef.current) return;
@@ -289,7 +289,7 @@ function ArgField({
 }: {
   argKey: string; value: string; onChange: (v: string) => void; datasetCols: DatasetColumns;
 }) {
-  const colType = COL_ARG_MAP[argKey];
+  const colType = COL_ARG_MAP[argKey] as keyof DatasetColumns | undefined;
   const availableCols = colType ? datasetCols[colType] : [];
 
   if (colType) {
@@ -393,9 +393,9 @@ function HumanResult({ step }: { step: PipelineStep }) {
         {cols.length === 0
           ? <GreenBanner text="✓ No missing values found — dataset is complete!" />
           : <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono, marginBottom: 6, letterSpacing: "0.08em" }}>MISSING DATA BY COLUMN</div>
-              {cols.map((c: any) => <MissingBar key={c.column} column={c.column} pct={c.null_percentage} count={c.null_count} total={result.total_rows} />)}
-            </div>}
+            <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono, marginBottom: 6, letterSpacing: "0.08em" }}>MISSING DATA BY COLUMN</div>
+            {cols.map((c: any) => <MissingBar key={c.column} column={c.column} pct={c.null_percentage} count={c.null_count} total={result.total_rows} />)}
+          </div>}
       </ResultCard>
     );
   }
@@ -1236,7 +1236,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
         ].join("\n");
         setDatasetMeta(metaSummary);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [isEditing, initialPipeline?.sessionId]);
 
   // Auto-fetch suggestions when editing (so panel is populated)
@@ -1486,7 +1486,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
         <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 14px", background: C.card, borderRadius: 11, border: `1px solid ${C.border}`, flexShrink: 0, flexWrap: "wrap" }}>
           <input value={pipelineName} onChange={e => setPipelineName(e.target.value)}
             style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, flex: 1, minWidth: 100 }} />
-        {/* Dataset label / Upload CSV */}
+          {/* Dataset label / Upload CSV */}
           {datasetLabel ? (
             <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: `${C.cyan}15`, color: C.cyan, border: `1px solid ${C.cyan}30`, fontFamily: C.mono, flexShrink: 0 }}>{datasetLabel}</span>
           ) : (
@@ -1591,7 +1591,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
             </div>
           </div>
         )}
-        
+
 
         {/* Done banner */}
         {phase === "done" && (
