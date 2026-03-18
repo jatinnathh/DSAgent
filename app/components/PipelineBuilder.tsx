@@ -1,10 +1,11 @@
-// app/components/PipelineBuilder.tsx  —  FLAGSHIP UPGRADE
+// app/components/PipelineBuilder.tsx
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence, Reorder } from "framer-motion";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 
-/* ── Design tokens ────────────────────────────────────────────── */
+/* ── Design tokens ─────────────────────────────────────────────── */
 const C = {
   bg: "#0A0A0A", card: "#111111", cardHover: "#161616", input: "#1A1A1A",
   border: "rgba(255,255,255,0.06)", borderMd: "rgba(255,255,255,0.10)", borderHi: "rgba(255,255,255,0.18)",
@@ -17,12 +18,110 @@ const C = {
 
 const CAT_COLOR: Record<string, string> = {
   cleaning: C.amber, eda: C.cyan, visualization: C.violet, modeling: C.green,
+  preprocessing: C.pink,
 };
 const CAT_ICON: Record<string, string> = {
   cleaning: "🧹", eda: "🔍", visualization: "📊", modeling: "🤖",
+  preprocessing: "⚙️",
 };
 
-/* ── Types ────────────────────────────────────────────────────── */
+// Which arg keys trigger a column dropdown and which column type they need
+const COL_ARG_MAP: Record<string, "all" | "numeric" | "categorical"> = {
+  column: "all",
+  target_column: "all",   // allow any column as target
+  x_column: "numeric",
+  y_column: "numeric",
+  group_by: "categorical",
+  columns_to_encode: "categorical",
+  columns_to_scale: "numeric",
+  feature_columns: "numeric",
+};
+
+/* ── Advanced preprocessing step catalog ───────────────────────── */
+export const ADVANCED_TOOLS: Record<string, { label: string; category: string; args: Record<string, any>; reason: string; icon?: string }> = {
+  // ─ Scaling ──────────────────────────────────────────
+  standard_scaler: {
+    label: "Standard Scaler (Z-score)", category: "preprocessing",
+    args: { columns_to_scale: "" },
+    reason: "Standardize numeric features to zero mean and unit variance (μ=0, σ=1). Required before SVM, PCA, regularized models.",
+  },
+  min_max_scaler: {
+    label: "Min-Max Scaler [0,1]", category: "preprocessing",
+    args: { columns_to_scale: "", feature_range_min: "0", feature_range_max: "1" },
+    reason: "Rescale features to [0,1] range. Good for neural nets and distance-based algorithms.",
+  },
+  robust_scaler: {
+    label: "Robust Scaler (IQR)", category: "preprocessing",
+    args: { columns_to_scale: "" },
+    reason: "Scale using median and IQR — resistant to outliers. Use when data has significant outliers.",
+  },
+  log_transform: {
+    label: "Log Transform (skew fix)", category: "preprocessing",
+    args: { column: "" },
+    reason: "Apply log1p transform to reduce right skew in distributions. Useful for income, price, count features.",
+  },
+  // ─ Encoding ─────────────────────────────────────────
+  one_hot_encode: {
+    label: "One-Hot Encoding", category: "preprocessing",
+    args: { columns_to_encode: "", drop_first: "true" },
+    reason: "Convert categorical columns to binary dummy variables. Required by most linear/tree models.",
+  },
+  label_encode: {
+    label: "Label Encoding (ordinal)", category: "preprocessing",
+    args: { column: "" },
+    reason: "Map categories to integers. Use for ordinal data or tree-based models that handle integers well.",
+  },
+  // ─ Feature Engineering ───────────────────────────────
+  pca_transform: {
+    label: "PCA Dimensionality Reduction", category: "preprocessing",
+    args: { n_components: "5", target_column: "" },
+    reason: "Reduce feature dimensions via PCA, retaining variance. Removes multicollinearity and speeds up training.",
+  },
+  polynomial_features: {
+    label: "Polynomial Features", category: "preprocessing",
+    args: { columns_to_scale: "", degree: "2" },
+    reason: "Create interaction and polynomial terms (x², x·y). Helps linear models capture non-linear patterns.",
+  },
+  drop_columns: {
+    label: "Drop Columns", category: "cleaning",
+    args: { column: "" },
+    reason: "Remove a column from the dataset to reduce noise or eliminate leakage columns before training.",
+  },
+  // ─ Splitting / Validation ────────────────────────────
+  train_test_split: {
+    label: "Train/Test Split", category: "preprocessing",
+    args: { target_column: "", test_size: "0.2", stratify: "false" },
+    reason: "Split dataset into train/test sets. Run before AutoML to prevent data leakage in evaluation.",
+  },
+  // ─ Modeling ─────────────────────────────────────────
+  auto_ml_pipeline: {
+    label: "AutoML Pipeline", category: "modeling",
+    args: { target_column: "", cv_folds: "5", include_preprocessing: "true" },
+    reason: "Train Random Forest, XGBoost, LightGBM, SVM, Logistic/Linear Regression with cross-validation. Uses the CURRENT cleaned dataset.",
+  },
+  cross_validate_model: {
+    label: "Cross-Validate Best Model", category: "modeling",
+    args: { target_column: "", model: "random_forest", cv_folds: "10" },
+    reason: "Run k-fold cross-validation on the cleaned data to get robust accuracy estimates and avoid overfitting.",
+  },
+  hyperparameter_tune: {
+    label: "Hyperparameter Tuning (Grid Search)", category: "modeling",
+    args: { target_column: "", model: "random_forest", cv_folds: "5" },
+    reason: "Grid search for optimal hyperparameters. Finds the best depth, estimators, learning rate, etc.",
+  },
+  feature_importance: {
+    label: "Feature Importance", category: "modeling",
+    args: { target_column: "" },
+    reason: "Train a Random Forest to rank features by predictive importance. Identify which columns drive predictions.",
+  },
+  model_evaluation: {
+    label: "Model Evaluation Report", category: "modeling",
+    args: { target_column: "", model: "random_forest" },
+    reason: "Accuracy, F1, Precision, Recall, ROC-AUC for classifiers; RMSE, MAE, R² for regressors.",
+  },
+};
+
+/* ── Types ──────────────────────────────────────────────────────── */
 export type PipelineStep = {
   id: string; tool: string; label: string; args: Record<string, any>;
   reason: string; category: string;
@@ -31,14 +130,249 @@ export type PipelineStep = {
   aiSummary?: string; loadingSummary?: boolean;
 };
 
-interface PipelineBuilderProps { onSaved?: (pipelineId: string) => void; }
+interface DatasetColumns {
+  all: string[];
+  numeric: string[];
+  categorical: string[];
+}
 
-/* ── Human-readable result renderer ──────────────────────────── */
+interface InitialPipeline {
+  id: string;
+  name: string;
+  sessionId?: string | null;
+  status: string;
+  steps: any[];
+  metadata?: any;
+}
+
+interface PipelineBuilderProps {
+  onSaved?: (pipelineId: string) => void;
+  initialPipeline?: InitialPipeline;
+}
+
+/* ── Portal-based Column Dropdown (fixes clipping from overflow:hidden) ── */
+function ColDropdown({
+  value, onChange, cols, label,
+}: {
+  value: string; onChange: (v: string) => void; cols: string[]; label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const portalId = useRef(`col-dp-${Math.random().toString(36).slice(2)}`);
+
+  const openDropdown = () => {
+    if (!btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const dropH = Math.min(cols.length * 36 + 60, 240);
+    // Flip upward if there's not enough room below
+    const top = spaceBelow < dropH && rect.top > dropH
+      ? rect.top - dropH - 4
+      : rect.bottom + 4;
+    setDropPos({
+      top,
+      left: rect.left,
+      width: Math.max(rect.width, 200),
+    });
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const portal = document.getElementById(portalId.current);
+      if (
+        btnRef.current && !btnRef.current.contains(e.target as Node) &&
+        (!portal || !portal.contains(e.target as Node))
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const dropdownEl = open ? createPortal(
+    <div
+      id={portalId.current}
+      style={{
+        position: "fixed",
+        top: dropPos.top,
+        left: dropPos.left,
+        width: dropPos.width,
+        zIndex: 99999,
+        background: "#1E1E1E",
+        border: `1px solid ${C.borderMd}`,
+        borderRadius: 10,
+        maxHeight: 240,
+        overflowY: "auto",
+        boxShadow: "0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)",
+        scrollbarWidth: "thin" as const,
+        scrollbarColor: `${C.border} transparent`,
+      }}
+    >
+      {/* Search / clear header */}
+      <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 10, color: C.textMute }}>🔍</span>
+        <span style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>
+          {cols.length} column{cols.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <button
+        onMouseDown={e => { e.preventDefault(); onChange(""); setOpen(false); }}
+        style={{ display: "block", width: "100%", padding: "8px 12px", background: "transparent", border: "none", color: C.textMute, fontSize: 11, fontFamily: C.mono, cursor: "pointer", textAlign: "left", borderBottom: `1px solid ${C.border}` }}
+        onMouseEnter={e => (e.currentTarget.style.background = C.cardHover)}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+      >
+        — clear —
+      </button>
+      {cols.length === 0 && (
+        <div style={{ padding: "12px", color: C.textMute, fontSize: 10, fontFamily: C.mono, textAlign: "center" }}>
+          Upload a CSV to see columns
+        </div>
+      )}
+      {cols.map(col => (
+        <button
+          key={col}
+          onMouseDown={e => { e.preventDefault(); onChange(col); setOpen(false); }}
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            width: "100%", padding: "8px 12px",
+            background: col === value ? `${C.cyan}15` : "transparent",
+            border: "none",
+            color: col === value ? C.cyan : C.textSub,
+            fontSize: 11, fontFamily: C.mono, cursor: "pointer", textAlign: "left",
+            borderBottom: `1px solid ${C.border}`,
+          }}
+          onMouseEnter={e => { if (col !== value) (e.currentTarget as HTMLElement).style.background = C.cardHover; }}
+          onMouseLeave={e => { if (col !== value) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: col === value ? C.cyan : C.textMute, flexShrink: 0 }} />
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col}</span>
+          {col === value && <span style={{ fontSize: 9, color: C.cyan }}>✓</span>}
+        </button>
+      ))}
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <label style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, letterSpacing: "0.05em", display: "block", marginBottom: 3 }}>{label}</label>
+      <button
+        ref={btnRef}
+        onClick={open ? () => setOpen(false) : openDropdown}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          background: C.input, border: `1px solid ${open ? C.cyan + "66" : C.border}`,
+          borderRadius: 6, padding: "5px 10px",
+          color: value ? C.text : C.textMute,
+          fontSize: 11, fontFamily: C.mono, cursor: "pointer", minWidth: 160,
+          transition: "border-color 0.15s", outline: "none",
+          boxShadow: open ? `0 0 0 2px ${C.cyan}22` : "none",
+        }}
+      >
+        <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {value || <span style={{ color: C.textMute }}>Select column…</span>}
+        </span>
+        <span style={{ color: C.textMute, fontSize: 9, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>▼</span>
+      </button>
+      {dropdownEl}
+    </div>
+  );
+}
+
+/* ── Arg Field — auto-detects dropdown vs text input ───────────── */
+function ArgField({
+  argKey, value, onChange, datasetCols,
+}: {
+  argKey: string; value: string; onChange: (v: string) => void; datasetCols: DatasetColumns;
+}) {
+  const colType = COL_ARG_MAP[argKey];
+  const availableCols = colType ? datasetCols[colType] : [];
+
+  if (colType) {
+    return (
+      <ColDropdown
+        value={value}
+        onChange={onChange}
+        cols={availableCols}
+        label={argKey}
+      />
+    );
+  }
+
+  // Enum select for model arg
+  if (argKey === "model") {
+    const models = ["random_forest", "xgboost", "lightgbm", "svm", "logistic_regression", "linear_regression", "gradient_boosting", "extra_trees", "knn", "naive_bayes"];
+    return (
+      <div>
+        <label style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, letterSpacing: "0.05em", display: "block", marginBottom: 3 }}>{argKey}</label>
+        <select
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 5, padding: "5px 8px", color: C.text, fontSize: 11, fontFamily: C.mono, outline: "none", minWidth: 160, cursor: "pointer" }}
+        >
+          {models.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+    );
+  }
+
+  // Boolean toggle
+  if (argKey === "stratify" || argKey === "drop_first" || argKey === "include_preprocessing") {
+    return (
+      <div>
+        <label style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, letterSpacing: "0.05em", display: "block", marginBottom: 3 }}>{argKey}</label>
+        <select
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 5, padding: "5px 8px", color: C.text, fontSize: 11, fontFamily: C.mono, outline: "none", cursor: "pointer" }}
+        >
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+      </div>
+    );
+  }
+
+  // Fallback text input
+  return (
+    <div>
+      <label style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, letterSpacing: "0.05em", display: "block", marginBottom: 3 }}>{argKey}</label>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 5, padding: "5px 8px", color: C.text, fontSize: 11, fontFamily: C.mono, outline: "none", width: 120 }}
+      />
+    </div>
+  );
+}
+
+/* ── Drag Handle ───────────────────────────────────────────────── */
+function DragHandle({ controls }: { controls: ReturnType<typeof useDragControls> }) {
+  return (
+    <div
+      onPointerDown={e => controls.start(e)}
+      style={{
+        color: C.textMute, cursor: "grab", fontSize: 16, flexShrink: 0,
+        lineHeight: 1, padding: "2px 4px", borderRadius: 4,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        userSelect: "none", touchAction: "none",
+      }}
+      title="Drag to reorder"
+    >
+      ⠿
+    </div>
+  );
+}
+
+/* ── Human-readable result renderer ───────────────────────────── */
 function HumanResult({ step }: { step: PipelineStep }) {
   const { tool, result, imageBase64 } = step;
   if (!result && !imageBase64) return null;
 
-  // ── Visualizations: just show the chart ──
   if (imageBase64) {
     return (
       <div style={{ padding: "0 12px 12px" }}>
@@ -48,7 +382,6 @@ function HumanResult({ step }: { step: PipelineStep }) {
     );
   }
 
-  // ── detect_missing_values ──
   if (tool === "detect_missing_values" && result) {
     const cols = result.missing_data || [];
     return (
@@ -59,19 +392,14 @@ function HumanResult({ step }: { step: PipelineStep }) {
         ]} />
         {cols.length === 0
           ? <GreenBanner text="✓ No missing values found — dataset is complete!" />
-          : (
-            <div style={{ marginTop: 10 }}>
+          : <div style={{ marginTop: 10 }}>
               <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono, marginBottom: 6, letterSpacing: "0.08em" }}>MISSING DATA BY COLUMN</div>
-              {cols.map((c: any) => (
-                <MissingBar key={c.column} column={c.column} pct={c.null_percentage} count={c.null_count} total={result.total_rows} />
-              ))}
-            </div>
-          )}
+              {cols.map((c: any) => <MissingBar key={c.column} column={c.column} pct={c.null_percentage} count={c.null_count} total={result.total_rows} />)}
+            </div>}
       </ResultCard>
     );
   }
 
-  // ── dataset_overview ──
   if (tool === "dataset_overview" && result) {
     const shape = result.shape || {};
     const missing = result.missing_data_summary || {};
@@ -93,7 +421,6 @@ function HumanResult({ step }: { step: PipelineStep }) {
     );
   }
 
-  // ── detect_outliers ──
   if (tool === "detect_outliers" && result) {
     const pct = result.outlier_percentage || 0;
     const severity = pct > 10 ? "high" : pct > 3 ? "medium" : "low";
@@ -116,7 +443,6 @@ function HumanResult({ step }: { step: PipelineStep }) {
     );
   }
 
-  // ── remove_duplicates / remove_outliers ──
   if ((tool === "remove_duplicates" || tool === "remove_outliers") && result) {
     const removed = result.duplicates_removed ?? result.rows_removed ?? 0;
     return (
@@ -126,14 +452,11 @@ function HumanResult({ step }: { step: PipelineStep }) {
           { label: "Rows Remaining", value: result.rows_remaining?.toLocaleString(), color: C.cyan },
           { label: "% Removed", value: `${result.duplicate_percentage ?? result.removal_percentage ?? 0}%`, color: C.textSub },
         ]} />
-        {removed === 0
-          ? <GreenBanner text="✓ No rows removed — dataset unchanged." />
-          : <div style={{ marginTop: 8, fontSize: 11, color: C.textSub }}>{removed} rows were cleaned from the dataset.</div>}
+        {removed === 0 ? <GreenBanner text="✓ No rows removed — dataset unchanged." /> : <div style={{ marginTop: 8, fontSize: 11, color: C.textSub }}>{removed} rows were cleaned from the dataset.</div>}
       </ResultCard>
     );
   }
 
-  // ── fill_missing_values ──
   if (tool === "fill_missing_values" && result) {
     return (
       <ResultCard>
@@ -148,7 +471,6 @@ function HumanResult({ step }: { step: PipelineStep }) {
     );
   }
 
-  // ── correlation_analysis ──
   if (tool === "correlation_analysis" && result) {
     const corrs = result.significant_correlations || [];
     const strong = corrs.filter((c: any) => c.strength === "strong");
@@ -159,14 +481,11 @@ function HumanResult({ step }: { step: PipelineStep }) {
           { label: "Correlations Found", value: result.total_correlations, color: C.violet },
           { label: "Strong", value: strong.length, color: strong.length > 0 ? C.green : C.textMute },
         ]} />
-        {corrs.slice(0, 5).map((c: any) => (
-          <CorrRow key={`${c.column1}-${c.column2}`} {...c} />
-        ))}
+        {corrs.slice(0, 5).map((c: any) => <CorrRow key={`${c.column1}-${c.column2}`} {...c} />)}
       </ResultCard>
     );
   }
 
-  // ── auto_ml_pipeline ──
   if (tool === "auto_ml_pipeline" && result) {
     const best = result.best_model;
     const score = result.best_score;
@@ -175,7 +494,7 @@ function HumanResult({ step }: { step: PipelineStep }) {
       <ResultCard>
         <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
           <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono, letterSpacing: "0.1em", marginBottom: 4 }}>BEST MODEL</div>
-          <div style={{ fontFamily: C.head, fontSize: 22, fontWeight: 700, color: C.green, letterSpacing: "-0.02em" }}>{best}</div>
+          <div style={{ fontFamily: C.head, fontSize: 22, fontWeight: 700, color: C.green }}>{best}</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: C.text, fontFamily: C.head, marginTop: 2 }}>{(score * 100).toFixed(1)}%</div>
           <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>{isClass ? "ACCURACY" : "R² SCORE"}</div>
         </div>
@@ -196,7 +515,6 @@ function HumanResult({ step }: { step: PipelineStep }) {
     );
   }
 
-  // ── column_statistics ──
   if (tool === "column_statistics" && result) {
     return (
       <ResultCard>
@@ -208,8 +526,7 @@ function HumanResult({ step }: { step: PipelineStep }) {
         ]} />
         {"mean" in result && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 8 }}>
-            {[["Mean", result.mean], ["Median", result.median], ["Std Dev", result.std],
-              ["Min", result.min], ["Max", result.max], ["Skew", result.skewness]].map(([k, v]) => (
+            {[["Mean", result.mean], ["Median", result.median], ["Std Dev", result.std], ["Min", result.min], ["Max", result.max], ["Skew", result.skewness]].map(([k, v]) => (
               <div key={String(k)} style={{ textAlign: "center", padding: "6px 4px", background: C.input, borderRadius: 6 }}>
                 <div style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono }}>{k}</div>
                 <div style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>{typeof v === "number" ? v.toFixed(2) : v}</div>
@@ -217,48 +534,10 @@ function HumanResult({ step }: { step: PipelineStep }) {
             ))}
           </div>
         )}
-        {"most_frequent" in result && result.top_5_values && (
-          <div style={{ marginTop: 8 }}>
-            {result.top_5_values.slice(0, 4).map((v: any) => (
-              <div key={v.value} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${(v.count / result.total_count) * 100}%`, background: C.violet, borderRadius: 3 }} />
-                </div>
-                <span style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, minWidth: 60 }}>{v.value}</span>
-                <span style={{ fontFamily: C.mono, fontSize: 10, color: C.textMute }}>{v.count}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </ResultCard>
     );
   }
 
-  // ── value_counts ──
-  if (tool === "value_counts" && result) {
-    return (
-      <ResultCard>
-        <StatBadges items={[
-          { label: "Column", value: result.column, color: C.textSub },
-          { label: "Unique Values", value: result.total_unique_values, color: C.cyan },
-        ]} />
-        <div style={{ marginTop: 8 }}>
-          {(result.value_counts || []).slice(0, 6).map((v: any, i: number) => (
-            <div key={v.value} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-              <span style={{ width: 14, height: 14, borderRadius: 4, background: `${C.violet}${Math.max(99 - i * 15, 20).toString(16)}`, flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 11, color: C.textSub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.value}</span>
-              <div style={{ width: 80, height: 6, background: C.border, borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${v.percentage}%`, background: C.violet, borderRadius: 3 }} />
-              </div>
-              <span style={{ fontFamily: C.mono, fontSize: 10, color: C.textMute, minWidth: 32, textAlign: "right" }}>{v.percentage?.toFixed(0)}%</span>
-            </div>
-          ))}
-        </div>
-      </ResultCard>
-    );
-  }
-
-  // ── data_quality_report ──
   if (tool === "data_quality_report" && result) {
     const issues = result.potential_issues || [];
     return (
@@ -280,36 +559,12 @@ function HumanResult({ step }: { step: PipelineStep }) {
     );
   }
 
-  // ── model_evaluation ──
-  if (tool === "model_evaluation" && result) {
-    const isClass = result.problem_type === "classification";
-    return (
-      <ResultCard>
-        <div style={{ fontSize: 11, fontWeight: 600, color: C.text, marginBottom: 8 }}>{result.model_name}</div>
-        {isClass ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-            {[["Accuracy", result.accuracy], ["Precision", result.precision], ["Recall", result.recall], ["F1 Score", result.f1_score]].map(([k, v]) => (
-              <ScoreGauge key={String(k)} label={String(k)} value={Number(v)} />
-            ))}
-          </div>
-        ) : (
-          <StatBadges items={[
-            { label: "R² Score", value: result.r2_score?.toFixed(3), color: C.green },
-            { label: "RMSE", value: result.rmse?.toFixed(2), color: C.amber },
-            { label: "MAE", value: result.mae?.toFixed(2), color: C.textSub },
-          ]} />
-        )}
-      </ResultCard>
-    );
-  }
-
-  // ── feature_importance ──
   if (tool === "feature_importance" && result) {
     const top = result.top_10_features || [];
     const maxImp = top[0]?.importance || 1;
     return (
       <ResultCard>
-        <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono, marginBottom: 8, letterSpacing: "0.08em" }}>TOP FEATURES — {result.model_name}</div>
+        <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono, marginBottom: 8 }}>TOP FEATURES — {result.model_name}</div>
         {top.slice(0, 6).map((f: any, i: number) => (
           <div key={f.feature} style={{ marginBottom: 6 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
@@ -326,18 +581,175 @@ function HumanResult({ step }: { step: PipelineStep }) {
     );
   }
 
-  // ── generic fallback: still human-friendly ──
+  // ── Preprocessing: Scaler results ──────────────────────────────
+  if (["standard_scaler", "min_max_scaler", "robust_scaler"].includes(tool) && result) {
+    return (
+      <ResultCard>
+        <StatBadges items={[
+          { label: "Scaler", value: result.scaler?.split(" ")[0], color: C.pink },
+          { label: "Columns", value: result.columns_scaled?.length ?? "all", color: C.cyan },
+          { label: "Rows", value: result.rows?.toLocaleString(), color: C.textSub },
+        ]} />
+        {result.before && (
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+            {Object.entries(result.before as Record<string, any>).slice(0, 4).map(([col, stats]: [string, any]) => (
+              <div key={col} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", background: C.card, borderRadius: 6, fontSize: 10, fontFamily: C.mono }}>
+                <span style={{ color: C.textSub, flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{col}</span>
+                <span style={{ color: C.textMute }}>μ {stats.mean?.toFixed(2)} σ {stats.std?.toFixed(2)}</span>
+                <span style={{ color: C.textMute }}>→</span>
+                <span style={{ color: C.green }}>μ {result.after?.[col]?.mean?.toFixed(2)} σ {result.after?.[col]?.std?.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <GreenBanner text={`✓ ${result.note}`} />
+      </ResultCard>
+    );
+  }
+
+  // ── Log transform ───────────────────────────────────────────────
+  if (tool === "log_transform" && result) {
+    const improved = result.improvement > 0;
+    return (
+      <ResultCard>
+        <StatBadges items={[
+          { label: "Column", value: result.column, color: C.textSub },
+          { label: "Skew Before", value: result.skewness_before, color: C.amber },
+          { label: "Skew After", value: result.skewness_after, color: C.green },
+          { label: "Improvement", value: result.improvement?.toFixed(3), color: improved ? C.green : C.red },
+        ]} />
+        {improved && <GreenBanner text="✓ Skewness reduced. Distribution is now more symmetric." />}
+      </ResultCard>
+    );
+  }
+
+  // ── One-hot encoding ────────────────────────────────────────────
+  if (tool === "one_hot_encode" && result) {
+    return (
+      <ResultCard>
+        <StatBadges items={[
+          { label: "Encoded", value: result.encoded_columns?.length, color: C.violet },
+          { label: "Cols Before", value: result.columns_before, color: C.textSub },
+          { label: "Cols After", value: result.columns_after, color: C.cyan },
+          { label: "Added", value: `+${result.new_columns_added}`, color: C.green },
+        ]} />
+        <GreenBanner text={`✓ ${result.encoded_columns?.join(", ")} encoded to binary dummies.`} />
+      </ResultCard>
+    );
+  }
+
+  // ── Label encode ────────────────────────────────────────────────
+  if (tool === "label_encode" && result) {
+    return (
+      <ResultCard>
+        <StatBadges items={[
+          { label: "Column", value: result.column, color: C.textSub },
+          { label: "Unique Values", value: result.unique_values, color: C.cyan },
+        ]} />
+        <div style={{ marginTop: 8, fontSize: 10, color: C.textMute, fontFamily: C.mono }}>
+          {Object.entries(result.mapping_sample || {}).slice(0, 6).map(([k, v]) => (
+            <span key={k} style={{ display: "inline-flex", gap: 4, marginRight: 8, color: C.textSub }}>
+              {k} <span style={{ color: C.violet }}>→ {String(v)}</span>
+            </span>
+          ))}
+        </div>
+      </ResultCard>
+    );
+  }
+
+  // ── PCA ─────────────────────────────────────────────────────────
+  if (tool === "pca_transform" && result) {
+    return (
+      <ResultCard>
+        <StatBadges items={[
+          { label: "Components", value: result.n_components, color: C.cyan },
+          { label: "Original Features", value: result.original_features, color: C.textSub },
+          { label: "Variance Explained", value: `${result.cumulative_variance_explained}%`, color: result.cumulative_variance_explained > 80 ? C.green : C.amber },
+        ]} />
+        <div style={{ marginTop: 8 }}>
+          {(result.variance_explained_per_component || []).map((pct: number, i: number) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, minWidth: 50 }}>PC{i + 1}</span>
+              <div style={{ flex: 1, height: 5, background: C.border, borderRadius: 2, overflow: "hidden" }}>
+                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: i * 0.05, duration: 0.4 }}
+                  style={{ height: "100%", background: `${C.cyan}`, borderRadius: 2 }} />
+              </div>
+              <span style={{ fontSize: 9, color: C.textSub, fontFamily: C.mono, minWidth: 36 }}>{pct}%</span>
+            </div>
+          ))}
+        </div>
+        {result.image_base64 && (
+          <div style={{ marginTop: 10 }}>
+            <img src={result.image_base64} alt="PCA Scree" style={{ width: "100%", borderRadius: 8, border: `1px solid ${C.border}` }} />
+          </div>
+        )}
+      </ResultCard>
+    );
+  }
+
+  // ── Cross-validation ────────────────────────────────────────────
+  if (tool === "cross_validate_model" && result) {
+    const scoreColor = result.mean_score > 0.85 ? C.green : result.mean_score > 0.65 ? C.amber : C.red;
+    return (
+      <ResultCard>
+        <StatBadges items={[
+          { label: "Model", value: result.model, color: C.textSub },
+          { label: "Mean Score", value: result.mean_score?.toFixed(4), color: scoreColor },
+          { label: "±Std", value: result.std_score?.toFixed(4), color: C.textMute },
+          { label: "Folds", value: result.cv_folds, color: C.violet },
+        ]} />
+        <div style={{ marginTop: 8, fontSize: 10, color: C.textSub, fontFamily: C.mono }}>
+          95% CI: [{result.confidence_interval_95?.[0]?.toFixed(4)} — {result.confidence_interval_95?.[1]?.toFixed(4)}]
+        </div>
+        {result.image_base64 && (
+          <img src={result.image_base64} alt="CV scores" style={{ width: "100%", borderRadius: 8, border: `1px solid ${C.border}`, marginTop: 8 }} />
+        )}
+      </ResultCard>
+    );
+  }
+
+  // ── Hyperparameter tuning ───────────────────────────────────────
+  if (tool === "hyperparameter_tune" && result) {
+    const scoreColor = result.best_score > 0.85 ? C.green : result.best_score > 0.65 ? C.amber : C.red;
+    return (
+      <ResultCard>
+        <StatBadges items={[
+          { label: "Best Score", value: result.best_score?.toFixed(4), color: scoreColor },
+          { label: "Combinations", value: result.total_combinations_tried, color: C.cyan },
+          { label: "Model", value: result.model, color: C.textSub },
+        ]} />
+        <div style={{ marginTop: 8, padding: "8px 10px", background: `${C.green}0D`, borderRadius: 7, border: `1px solid ${C.green}25`, fontSize: 10, fontFamily: C.mono, color: C.green }}>
+          Best params: {JSON.stringify(result.best_params)}
+        </div>
+        {(result.top_5_results || []).slice(0, 3).map((r: any, i: number) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", marginTop: 4, background: i === 0 ? `${C.green}0A` : "transparent", borderRadius: 5, border: `1px solid ${i === 0 ? C.green + "30" : C.border}` }}>
+            <span style={{ fontSize: 9, color: i === 0 ? C.green : C.textMute, fontFamily: C.mono, minWidth: 20 }}>#{i + 1}</span>
+            <span style={{ flex: 1, fontSize: 9, color: C.textSub, fontFamily: C.mono, overflow: "hidden", textOverflow: "ellipsis" }}>{JSON.stringify(r.params)}</span>
+            <span style={{ fontSize: 10, color: i === 0 ? C.green : C.textSub, fontFamily: C.mono }}>{r.mean_score?.toFixed(4)}</span>
+          </div>
+        ))}
+      </ResultCard>
+    );
+  }
+
+  // ── Drop column / train-test split / polynomial ─────────────────
+  if (["drop_columns", "train_test_split", "polynomial_features"].includes(tool) && result) {
+    const simpleKeys = Object.keys(result).filter(k => typeof result[k] !== "object" && !Array.isArray(result[k])).slice(0, 6);
+    return (
+      <ResultCard>
+        <StatBadges items={simpleKeys.map(k => ({ label: k.replace(/_/g, " "), value: String(result[k]), color: C.textSub }))} />
+        {result.note && <div style={{ marginTop: 6, fontSize: 10, color: C.textMute, fontStyle: "italic" }}>{result.note}</div>}
+      </ResultCard>
+    );
+  }
+
   if (result && typeof result === "object") {
     const keys = Object.keys(result).filter(k => !["correlation_matrix"].includes(k));
     const simple = keys.filter(k => typeof result[k] !== "object").slice(0, 6);
     if (simple.length > 0) {
       return (
         <ResultCard>
-          <StatBadges items={simple.map(k => ({
-            label: k.replace(/_/g, " "),
-            value: String(result[k]),
-            color: C.textSub,
-          }))} />
+          <StatBadges items={simple.map(k => ({ label: k.replace(/_/g, " "), value: String(result[k]), color: C.textSub }))} />
         </ResultCard>
       );
     }
@@ -345,7 +757,7 @@ function HumanResult({ step }: { step: PipelineStep }) {
   return null;
 }
 
-/* ── Sub-components for HumanResult ──────────────────────────── */
+/* ── Sub-components ─────────────────────────────────────────────── */
 function ResultCard({ children }: { children: React.ReactNode }) {
   return <div style={{ padding: "10px 12px 12px", background: C.input, borderRadius: 10, margin: "0 12px 12px" }}>{children}</div>;
 }
@@ -362,25 +774,14 @@ function StatBadges({ items }: { items: { label: string; value: any; color: stri
     </div>
   );
 }
-
 function Chip({ label, color, icon }: { label: string; color: string; icon: string }) {
-  return (
-    <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: `${color}18`, color, border: `1px solid ${color}30`, fontFamily: C.mono, display: "inline-flex", alignItems: "center", gap: 4 }}>
-      <span style={{ opacity: 0.6, fontSize: 9 }}>{icon}</span>{label}
-    </span>
-  );
+  return <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: `${color}18`, color, border: `1px solid ${color}30`, fontFamily: C.mono, display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ opacity: 0.6, fontSize: 9 }}>{icon}</span>{label}</span>;
 }
-
 function GreenBanner({ text }: { text: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: `${C.green}0D`, borderRadius: 7, border: `1px solid ${C.green}25`, marginTop: 6 }}>
-      <span style={{ fontSize: 11, color: C.green }}>{text}</span>
-    </div>
-  );
+  return <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: `${C.green}0D`, borderRadius: 7, border: `1px solid ${C.green}25`, marginTop: 6 }}><span style={{ fontSize: 11, color: C.green }}>{text}</span></div>;
 }
-
 function MissingBar({ column, pct, count, total }: { column: string; pct: number; count: number; total: number }) {
-  const color = pct > 30 ? C.red : pct > 10 ? C.amber : C.amber;
+  const color = pct > 30 ? C.red : C.amber;
   return (
     <div style={{ marginBottom: 7 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
@@ -388,63 +789,37 @@ function MissingBar({ column, pct, count, total }: { column: string; pct: number
         <span style={{ fontSize: 10, color, fontFamily: C.mono }}>{pct}% ({count.toLocaleString()} rows)</span>
       </div>
       <div style={{ height: 6, background: C.border, borderRadius: 3, overflow: "hidden" }}>
-        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }}
-          style={{ height: "100%", background: color, borderRadius: 3 }} />
+        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }} style={{ height: "100%", background: color, borderRadius: 3 }} />
       </div>
     </div>
   );
 }
-
 function CorrRow({ column1, column2, correlation, strength, direction }: any) {
   const color = strength === "strong" ? C.green : strength === "moderate" ? C.amber : C.textMute;
-  const w = Math.abs(correlation) * 100;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
-      <span style={{ fontSize: 10, color: C.textSub, fontFamily: C.mono, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {column1} ↔ {column2}
-      </span>
+      <span style={{ fontSize: 10, color: C.textSub, fontFamily: C.mono, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{column1} ↔ {column2}</span>
       <div style={{ width: 60, height: 5, background: C.border, borderRadius: 2, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${w}%`, background: color, borderRadius: 2 }} />
+        <div style={{ height: "100%", width: `${Math.abs(correlation) * 100}%`, background: color, borderRadius: 2 }} />
       </div>
-      <span style={{ fontFamily: C.mono, fontSize: 10, color, minWidth: 48, textAlign: "right" }}>
-        {direction === "positive" ? "+" : ""}{correlation.toFixed(3)}
-      </span>
+      <span style={{ fontFamily: C.mono, fontSize: 10, color, minWidth: 48, textAlign: "right" }}>{direction === "positive" ? "+" : ""}{correlation.toFixed(3)}</span>
     </div>
   );
 }
-
-function ScoreGauge({ label, value }: { label: string; value: number }) {
-  const color = value > 0.85 ? C.green : value > 0.65 ? C.amber : C.red;
-  return (
-    <div style={{ padding: "8px 10px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, textAlign: "center" }}>
-      <div style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, marginBottom: 4, letterSpacing: "0.06em" }}>{label.toUpperCase()}</div>
-      <div style={{ fontSize: 20, fontWeight: 800, color, fontFamily: C.head }}>{(value * 100).toFixed(1)}%</div>
-      <div style={{ height: 3, background: C.border, borderRadius: 2, overflow: "hidden", marginTop: 4 }}>
-        <div style={{ height: "100%", width: `${value * 100}%`, background: color, borderRadius: 2 }} />
-      </div>
-    </div>
-  );
-}
-
 function SmallStatRow({ data }: { data: any }) {
   const items: { label: string; value: any }[] = [];
   if (data.chart_type) items.push({ label: "Type", value: data.chart_type.replace(/_/g, " ") });
   if (data.correlation != null) items.push({ label: "Correlation", value: data.correlation.toFixed(3) });
   if (data.statistics?.mean != null) items.push({ label: "Mean", value: data.statistics.mean.toFixed(2) }, { label: "Std", value: data.statistics.std?.toFixed(2) });
-  if (data.outlier_statistics?.outlier_count != null) items.push({ label: "Outliers", value: data.outlier_statistics.outlier_count });
   if (!items.length) return null;
   return (
     <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-      {items.map(i => (
-        <span key={i.label} style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>
-          <span style={{ color: C.textSub }}>{i.label}:</span> {i.value}
-        </span>
-      ))}
+      {items.map(i => <span key={i.label} style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}><span style={{ color: C.textSub }}>{i.label}:</span> {i.value}</span>)}
     </div>
   );
 }
 
-/* ── AI Summary component ─────────────────────────────────────── */
+/* ── AI Summary ─────────────────────────────────────────────────── */
 function AISummary({ step, onGenerate }: { step: PipelineStep; onGenerate: () => void }) {
   if (step.status !== "done") return null;
   return (
@@ -453,217 +828,80 @@ function AISummary({ step, onGenerate }: { step: PipelineStep; onGenerate: () =>
         <span style={{ fontSize: 12 }}>✨</span>
         <span style={{ fontSize: 10, fontWeight: 600, color: C.violet, fontFamily: C.head }}>AI Insight</span>
         {!step.aiSummary && !step.loadingSummary && (
-          <button onClick={onGenerate} style={{ marginLeft: "auto", fontSize: 9, padding: "2px 8px", borderRadius: 4, border: `1px solid ${C.violet}44`, background: `${C.violet}15`, color: C.violet, cursor: "pointer", fontFamily: C.mono }}>
-            Explain this →
-          </button>
+          <button onClick={onGenerate} style={{ marginLeft: "auto", fontSize: 9, padding: "2px 8px", borderRadius: 4, border: `1px solid ${C.violet}44`, background: `${C.violet}15`, color: C.violet, cursor: "pointer", fontFamily: C.mono }}>Explain this →</button>
         )}
         {step.loadingSummary && (
           <div style={{ marginLeft: "auto", display: "flex", gap: 3, alignItems: "center" }}>
-            {[0, 1, 2].map(i => (
-              <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: C.violet, animation: `dot 1.2s ${i * 0.2}s ease-in-out infinite` }} />
-            ))}
+            {[0, 1, 2].map(i => <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: C.violet, animation: `dot 1.2s ${i * 0.2}s ease-in-out infinite` }} />)}
           </div>
         )}
       </div>
-      {step.aiSummary && (
-        <p style={{ fontSize: 12, color: C.textSub, lineHeight: 1.65, margin: 0 }}>{step.aiSummary}</p>
-      )}
+      {step.aiSummary && <p style={{ fontSize: 12, color: C.textSub, lineHeight: 1.65, margin: 0 }}>{step.aiSummary}</p>}
     </div>
   );
 }
 
-/* ── Export utilities ─────────────────────────────────────────── */
-function buildExportText(steps: PipelineStep[], pipelineName: string): string {
-  const lines: string[] = [];
-  lines.push(`DSAgent Pipeline Report: ${pipelineName}`);
-  lines.push(`Generated: ${new Date().toLocaleString()}`);
-  lines.push(`${"=".repeat(60)}`);
-  lines.push("");
-  steps.forEach((step, i) => {
-    lines.push(`Step ${i + 1}: ${step.label} [${step.status.toUpperCase()}]`);
-    lines.push(`Tool: ${step.tool}`);
-    if (step.executionMs) lines.push(`Time: ${step.executionMs}ms`);
-    if (step.aiSummary) lines.push(`AI Insight: ${step.aiSummary}`);
-    if (step.errorMsg) lines.push(`Error: ${step.errorMsg}`);
-    if (step.result) lines.push(`Result: ${JSON.stringify(step.result, null, 2)}`);
-    lines.push("");
-  });
-  return lines.join("\n");
-}
-
-function downloadJSON(data: any, filename: string) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
-
-function downloadText(text: string, filename: string) {
-  const blob = new Blob([text], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
-
-function downloadCSV(steps: PipelineStep[], name: string) {
-  const rows = [["Step", "Tool", "Category", "Status", "Time (ms)", "AI Insight", "Error"]];
-  steps.forEach((s, i) => rows.push([
-    String(i + 1), s.tool, s.category, s.status,
-    String(s.executionMs ?? ""), s.aiSummary ?? "", s.errorMsg ?? "",
-  ]));
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-  downloadText(csv, `${name.replace(/\s+/g, "_")}_results.csv`);
-}
-
-/* ── Export Modal ─────────────────────────────────────────────── */
-function ExportModal({ steps, pipelineName, onClose }: { steps: PipelineStep[]; pipelineName: string; onClose: () => void }) {
-  const [exporting, setExporting] = useState<string | null>(null);
-  const doExport = async (type: string) => {
-    setExporting(type);
-    await new Promise(r => setTimeout(r, 400));
-    if (type === "json") downloadJSON({ name: pipelineName, steps: steps.map(s => ({ ...s, result: s.result })) }, `${pipelineName.replace(/\s+/g, "_")}.json`);
-    if (type === "txt") downloadText(buildExportText(steps, pipelineName), `${pipelineName.replace(/\s+/g, "_")}_report.txt`);
-    if (type === "csv") downloadCSV(steps, pipelineName);
-    setExporting(null);
-  };
-
+/* ── Status Badge ───────────────────────────────────────────────── */
+function StatusBadge({ status, color }: { status: PipelineStep["status"]; color: string }) {
+  const cfg = {
+    pending: { label: "Pending", bg: C.border, tc: C.textMute },
+    running: { label: "Running", bg: `${color}22`, tc: color },
+    done: { label: "Done", bg: `${C.green}22`, tc: C.green },
+    error: { label: "Error", bg: `${C.red}22`, tc: C.red },
+  }[status];
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <motion.div initial={{ scale: 0.93, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.93 }}
-        onClick={e => e.stopPropagation()}
-        style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.borderMd}`, width: "100%", maxWidth: 420, overflow: "hidden" }}>
-        <div style={{ padding: "20px 22px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, marginBottom: 4 }}>Export Results</div>
-          <div style={{ fontSize: 12, color: C.textSub }}>Download your pipeline results in various formats.</div>
-        </div>
-        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-          {[
-            { id: "json", icon: "{ }", label: "JSON Export", desc: "Full structured data, all results", color: C.cyan },
-            { id: "txt", icon: "📄", label: "Text Report", desc: "Human-readable summary with AI insights", color: C.violet },
-            { id: "csv", icon: "📊", label: "CSV Summary", desc: "Spreadsheet-friendly step results table", color: C.green },
-          ].map(({ id, icon, label, desc, color }) => (
-            <button key={id} onClick={() => doExport(id)} disabled={exporting === id}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: exporting === id ? `${color}15` : C.input, border: `1px solid ${exporting === id ? color + "44" : C.border}`, borderRadius: 10, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: `${color}18`, border: `1px solid ${color}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{icon}</div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: C.head }}>{exporting === id ? "Preparing…" : label}</div>
-                <div style={{ fontSize: 11, color: C.textSub }}>{desc}</div>
-              </div>
-              <div style={{ marginLeft: "auto", fontSize: 16, color: color, opacity: 0.6 }}>↓</div>
-            </button>
-          ))}
-        </div>
-        <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "6px 16px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSub, fontSize: 12, cursor: "pointer", fontFamily: C.sans }}>Close</button>
-        </div>
-      </motion.div>
-    </motion.div>
+    <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: cfg.bg, color: cfg.tc, fontFamily: C.mono, fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: 4 }}>
+      {status === "running" && <span style={{ width: 5, height: 5, borderRadius: "50%", background: color, animation: "pls 1.2s ease-in-out infinite" }} />}
+      {cfg.label}
+    </span>
   );
 }
 
-/* ── Templates ────────────────────────────────────────────────── */
-const TEMPLATES: Record<string, { name: string; icon: string; desc: string; steps: any[] }> = {
-  eda_starter: {
-    name: "EDA Starter", icon: "🔍", desc: "Explore any dataset in 5 steps",
-    steps: [
-      { tool: "detect_missing_values", label: "Detect Missing Values", args: {}, reason: "Identify columns with missing data.", category: "cleaning" },
-      { tool: "data_quality_report", label: "Data Quality Report", args: {}, reason: "Get a full data quality overview.", category: "eda" },
-      { tool: "dataset_overview", label: "Dataset Overview", args: {}, reason: "Understand shape and distributions.", category: "eda" },
-      { tool: "correlation_analysis", label: "Correlation Analysis", args: {}, reason: "Find relationships between numeric columns.", category: "eda" },
-      { tool: "create_correlation_heatmap", label: "Correlation Heatmap", args: {}, reason: "Visualize all correlations at once.", category: "visualization" },
-    ],
-  },
-  clean_and_model: {
-    name: "Clean & Model", icon: "🤖", desc: "Clean data then train ML models",
-    steps: [
-      { tool: "detect_missing_values", label: "Detect Missing Values", args: {}, reason: "Check what needs cleaning first.", category: "cleaning" },
-      { tool: "remove_duplicates", label: "Remove Duplicates", args: {}, reason: "Ensure unique rows for training.", category: "cleaning" },
-      { tool: "dataset_overview", label: "Dataset Overview", args: {}, reason: "Verify shape after cleaning.", category: "eda" },
-      { tool: "auto_ml_pipeline", label: "Auto ML Pipeline", args: { target_column: "target" }, reason: "Train and compare multiple models automatically.", category: "modeling" },
-    ],
-  },
-  viz_deep_dive: {
-    name: "Visualization Pack", icon: "📊", desc: "Explore your data visually",
-    steps: [
-      { tool: "dataset_overview", label: "Dataset Overview", args: {}, reason: "Understand which columns to visualize.", category: "eda" },
-      { tool: "create_correlation_heatmap", label: "Correlation Heatmap", args: {}, reason: "See all numeric relationships at once.", category: "visualization" },
-      { tool: "create_box_plot", label: "Box Plot (Outlier Check)", args: {}, reason: "Spot outliers visually.", category: "visualization" },
-      { tool: "correlation_analysis", label: "Correlation Analysis", args: {}, reason: "Find the strongest numeric correlations.", category: "eda" },
-    ],
-  },
-};
-
-function TemplateModal({ onSelect, onClose }: { onSelect: (steps: any[]) => void; onClose: () => void }) {
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <motion.div initial={{ scale: 0.93, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.93 }}
-        onClick={e => e.stopPropagation()}
-        style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.borderMd}`, width: "100%", maxWidth: 480 }}>
-        <div style={{ padding: "20px 22px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, marginBottom: 4 }}>Pipeline Templates</div>
-          <div style={{ fontSize: 12, color: C.textSub }}>Start with a curated workflow — customise after loading.</div>
-        </div>
-        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-          {Object.entries(TEMPLATES).map(([id, tmpl]) => (
-            <button key={id} onClick={() => onSelect(tmpl.steps)}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: C.input, border: `1px solid ${C.border}`, borderRadius: 10, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.cyan + "55"; (e.currentTarget as HTMLElement).style.background = `${C.cyan}08`; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.background = C.input; }}>
-              <div style={{ width: 42, height: 42, borderRadius: 10, background: `${C.cyan}15`, border: `1px solid ${C.cyan}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{tmpl.icon}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: C.head, marginBottom: 2 }}>{tmpl.name}</div>
-                <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{tmpl.desc}</div>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  {tmpl.steps.map((s, i) => (
-                    <span key={i} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: `${CAT_COLOR[s.category]}18`, color: CAT_COLOR[s.category], fontFamily: C.mono }}>{s.label}</span>
-                  ))}
-                </div>
-              </div>
-              <span style={{ color: C.cyan, fontSize: 18, opacity: 0.6 }}>→</span>
-            </button>
-          ))}
-        </div>
-        <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "6px 16px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSub, fontSize: 12, cursor: "pointer", fontFamily: C.sans }}>Cancel</button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-/* ── StepCard ────────────────────────────────────────────────── */
+/* ── Step Card with drag controls ──────────────────────────────── */
 function StepCard({
   step, idx, phase, isRunning, expanded, onToggleExpand,
   onRemove, onUpdateArg, onRunFrom, onGenerateSummary,
+  datasetCols,
 }: {
   step: PipelineStep; idx: number; phase: string; isRunning: boolean;
   expanded: boolean; onToggleExpand: () => void; onRemove: () => void;
   onUpdateArg: (k: string, v: string) => void; onRunFrom: () => void;
   onGenerateSummary: () => void;
+  datasetCols: DatasetColumns;
 }) {
+  const controls = useDragControls();
   const color = CAT_COLOR[step.category] || C.textSub;
   const [hovRun, setHovRun] = useState(false);
   const canRunFrom = !isRunning && (step.status === "pending" || step.status === "error") && idx > 0;
   const borderColor = step.status === "running" ? color + "88" : step.status === "done" ? color + "33" : step.status === "error" ? C.red + "55" : C.border;
 
   return (
-    <motion.div layout initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }}
+    <Reorder.Item
+      value={step}
+      id={step.id}
+      dragListener={false}
+      dragControls={controls}
+      as="div"
+      style={{ background: C.card, border: `1px solid ${borderColor}`, borderRadius: 12, overflow: "hidden", flexShrink: 0, cursor: "default" }}
+      initial={{ opacity: 0, x: -14 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 14 }}
       transition={{ duration: 0.2 }}
-      style={{ background: C.card, border: `1px solid ${borderColor}`, borderRadius: 12, overflow: "hidden", flexShrink: 0 }}>
-
-      {/* Header row */}
+      whileDrag={{ scale: 1.01, boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${color}55`, zIndex: 100 }}
+    >
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 13px", background: step.status === "running" ? `${color}08` : step.status === "done" ? `${color}03` : "transparent" }}>
-        {/* Drag handle */}
-        {!isRunning && (
-          <div style={{ color: C.textMute, cursor: "grab", fontSize: 14, flexShrink: 0, lineHeight: 1 }}>⠿</div>
+        {/* Drag handle — only when not running */}
+        {!isRunning ? (
+          <DragHandle controls={controls} />
+        ) : (
+          <div style={{ width: 20 }} />
         )}
-        {/* Index badge */}
+
+        {/* Index */}
         <div style={{ width: 22, height: 22, borderRadius: 6, background: `${color}22`, border: `1px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color, fontFamily: C.mono, flexShrink: 0 }}>{idx + 1}</div>
         <span style={{ fontSize: 14, flexShrink: 0 }}>{CAT_ICON[step.category] || "⚙️"}</span>
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: C.text, fontFamily: C.head, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{step.label}</div>
           <div style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono }}>{step.tool}</div>
@@ -671,17 +909,18 @@ function StepCard({
 
         {canRunFrom && (
           <button onClick={onRunFrom} onMouseEnter={() => setHovRun(true)} onMouseLeave={() => setHovRun(false)}
+            title="Run from this step onwards"
             style={{ padding: "3px 8px", borderRadius: 5, border: `1px solid ${hovRun ? color + "66" : C.border}`, background: hovRun ? `${color}18` : "transparent", color: hovRun ? color : C.textMute, fontSize: 9, fontFamily: C.mono, cursor: "pointer", transition: "all 0.15s", flexShrink: 0 }}>
             ▶ from here
           </button>
         )}
 
-        {/* Status badge */}
         <StatusBadge status={step.status} color={color} />
         {step.executionMs != null && <span style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, flexShrink: 0 }}>{step.executionMs}ms</span>}
 
         {!isRunning && phase !== "run" && (
-          <button onClick={onRemove} style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", fontSize: 12, padding: "2px 4px", borderRadius: 4, flexShrink: 0 }}
+          <button onClick={onRemove} title="Remove step"
+            style={{ background: "none", border: "none", color: C.textMute, cursor: "pointer", fontSize: 12, padding: "2px 4px", borderRadius: 4, flexShrink: 0 }}
             onMouseEnter={e => (e.currentTarget.style.color = C.red)}
             onMouseLeave={e => (e.currentTarget.style.color = C.textMute)}>✕</button>
         )}
@@ -694,15 +933,17 @@ function StepCard({
         </div>
       )}
 
-      {/* Args */}
+      {/* Args — smart dropdowns */}
       {!isRunning && Object.keys(step.args).length > 0 && (
-        <div style={{ padding: "8px 13px", borderTop: `1px solid ${C.border}`, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ padding: "10px 13px", borderTop: `1px solid ${C.border}`, display: "flex", flexWrap: "wrap", gap: 10 }}>
           {Object.entries(step.args).map(([key, val]) => (
-            <div key={key} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <label style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, letterSpacing: "0.05em" }}>{key}</label>
-              <input value={String(val)} onChange={e => onUpdateArg(key, e.target.value)}
-                style={{ background: C.input, border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 8px", color: C.text, fontSize: 11, fontFamily: C.mono, outline: "none", width: 160 }} />
-            </div>
+            <ArgField
+              key={key}
+              argKey={key}
+              value={String(val)}
+              onChange={v => onUpdateArg(key, v)}
+              datasetCols={datasetCols}
+            />
           ))}
         </div>
       )}
@@ -710,7 +951,7 @@ function StepCard({
       {/* Reason */}
       <div style={{ padding: "5px 13px 8px", fontSize: 10, color: C.textMute, fontFamily: C.sans, borderTop: `1px solid ${C.border}`, fontStyle: "italic", lineHeight: 1.55 }}>{step.reason}</div>
 
-      {/* Results section */}
+      {/* Results */}
       {(step.result || step.imageBase64) && (
         <div style={{ borderTop: `1px solid ${C.border}` }}>
           <button onClick={onToggleExpand}
@@ -728,32 +969,17 @@ function StepCard({
         </div>
       )}
 
-      {/* Running bar */}
+      {/* Running animation bar */}
       {step.status === "running" && (
         <div style={{ height: 2, background: `${color}20`, overflow: "hidden" }}>
           <motion.div style={{ height: "100%", background: color }} animate={{ x: ["-100%", "100%"] }} transition={{ repeat: Infinity, duration: 1.1, ease: "linear" }} />
         </div>
       )}
-    </motion.div>
+    </Reorder.Item>
   );
 }
 
-function StatusBadge({ status, color }: { status: PipelineStep["status"]; color: string }) {
-  const cfg = {
-    pending: { label: "Pending", bg: C.border, tc: C.textMute },
-    running: { label: "Running", bg: `${color}22`, tc: color },
-    done: { label: "Done", bg: `${C.green}22`, tc: C.green },
-    error: { label: "Error", bg: `${C.red}22`, tc: C.red },
-  }[status];
-  return (
-    <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: cfg.bg, color: cfg.tc, fontFamily: C.mono, fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: 4 }}>
-      {status === "running" && <span style={{ width: 5, height: 5, borderRadius: "50%", background: color, animation: "pls 1.2s ease-in-out infinite" }} />}
-      {cfg.label}
-    </span>
-  );
-}
-
-/* ── SuggestionCard ───────────────────────────────────────────── */
+/* ── Suggestion Card ────────────────────────────────────────────── */
 function SuggestionCard({ suggestion, onAdd, disabled }: { suggestion: any; onAdd: () => void; disabled: boolean }) {
   const [hov, setHov] = useState(false);
   const color = CAT_COLOR[suggestion.category] || C.textSub;
@@ -774,17 +1000,211 @@ function SuggestionCard({ suggestion, onAdd, disabled }: { suggestion: any; onAd
   );
 }
 
-/* ── Main PipelineBuilder ─────────────────────────────────────── */
-export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
-  const [phase, setPhase] = useState<"upload" | "build" | "run" | "done">("upload");
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [datasetMeta, setDatasetMeta] = useState("");
-  const [datasetLabel, setDatasetLabel] = useState("");
-  const [steps, setSteps] = useState<PipelineStep[]>([]);
+/* ── Export utilities ───────────────────────────────────────────── */
+function buildExportText(steps: PipelineStep[], pipelineName: string): string {
+  const lines: string[] = [`DSAgent Pipeline Report: ${pipelineName}`, `Generated: ${new Date().toLocaleString()}`, "=".repeat(60), ""];
+  steps.forEach((step, i) => {
+    lines.push(`Step ${i + 1}: ${step.label} [${step.status.toUpperCase()}]`, `Tool: ${step.tool}`);
+    if (step.executionMs) lines.push(`Time: ${step.executionMs}ms`);
+    if (step.aiSummary) lines.push(`AI Insight: ${step.aiSummary}`);
+    if (step.errorMsg) lines.push(`Error: ${step.errorMsg}`);
+    if (step.result) lines.push(`Result: ${JSON.stringify(step.result, null, 2)}`);
+    lines.push("");
+  });
+  return lines.join("\n");
+}
+function downloadText(text: string, filename: string) {
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+}
+function downloadJSON(data: any, filename: string) {
+  downloadText(JSON.stringify(data, null, 2), filename);
+}
+function downloadCSV(steps: PipelineStep[], name: string) {
+  const rows = [["Step", "Tool", "Category", "Status", "Time (ms)", "AI Insight", "Error"]];
+  steps.forEach((s, i) => rows.push([String(i + 1), s.tool, s.category, s.status, String(s.executionMs ?? ""), s.aiSummary ?? "", s.errorMsg ?? ""]));
+  downloadText(rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n"), `${name.replace(/\s+/g, "_")}_results.csv`);
+}
+
+/* ── Export Modal ───────────────────────────────────────────────── */
+function ExportModal({ steps, pipelineName, onClose }: { steps: PipelineStep[]; pipelineName: string; onClose: () => void }) {
+  const [exporting, setExporting] = useState<string | null>(null);
+  const doExport = async (type: string) => {
+    setExporting(type);
+    await new Promise(r => setTimeout(r, 400));
+    if (type === "json") downloadJSON({ name: pipelineName, steps }, `${pipelineName.replace(/\s+/g, "_")}.json`);
+    if (type === "txt") downloadText(buildExportText(steps, pipelineName), `${pipelineName.replace(/\s+/g, "_")}_report.txt`);
+    if (type === "csv") downloadCSV(steps, pipelineName);
+    setExporting(null);
+  };
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <motion.div initial={{ scale: 0.93, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.93 }} onClick={e => e.stopPropagation()}
+        style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.borderMd}`, width: "100%", maxWidth: 420, overflow: "hidden" }}>
+        <div style={{ padding: "20px 22px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, marginBottom: 4 }}>Export Results</div>
+          <div style={{ fontSize: 12, color: C.textSub }}>Download your pipeline results in various formats.</div>
+        </div>
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+          {[
+            { id: "json", icon: "{ }", label: "JSON Export", desc: "Full structured data, all results", color: C.cyan },
+            { id: "txt", icon: "📄", label: "Text Report", desc: "Human-readable summary with AI insights", color: C.violet },
+            { id: "csv", icon: "📊", label: "CSV Summary", desc: "Spreadsheet-friendly step results table", color: C.green },
+          ].map(({ id, icon, label, desc, color }) => (
+            <button key={id} onClick={() => doExport(id)} disabled={exporting === id}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: exporting === id ? `${color}15` : C.input, border: `1px solid ${exporting === id ? color + "44" : C.border}`, borderRadius: 10, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: `${color}18`, border: `1px solid ${color}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{icon}</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: C.head }}>{exporting === id ? "Preparing…" : label}</div>
+                <div style={{ fontSize: 11, color: C.textSub }}>{desc}</div>
+              </div>
+              <div style={{ marginLeft: "auto", fontSize: 16, color, opacity: 0.6 }}>↓</div>
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "6px 16px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSub, fontSize: 12, cursor: "pointer", fontFamily: C.sans }}>Close</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ── Templates ──────────────────────────────────────────────────── */
+const TEMPLATES: Record<string, { name: string; icon: string; desc: string; steps: any[] }> = {
+  eda_starter: {
+    name: "EDA Starter", icon: "🔍", desc: "Explore any dataset in 5 steps",
+    steps: [
+      { tool: "detect_missing_values", label: "Detect Missing Values", args: {}, reason: "Identify columns with missing data.", category: "cleaning" },
+      { tool: "data_quality_report", label: "Data Quality Report", args: {}, reason: "Get a full data quality overview.", category: "eda" },
+      { tool: "dataset_overview", label: "Dataset Overview", args: {}, reason: "Understand shape and distributions.", category: "eda" },
+      { tool: "correlation_analysis", label: "Correlation Analysis", args: {}, reason: "Find relationships between numeric columns.", category: "eda" },
+      { tool: "create_correlation_heatmap", label: "Correlation Heatmap", args: {}, reason: "Visualize all correlations at once.", category: "visualization" },
+    ],
+  },
+  clean_scale_model: {
+    name: "Clean → Scale → AutoML", icon: "🚀", desc: "Full DS pipeline: clean, encode, scale, then train",
+    steps: [
+      { tool: "detect_missing_values", label: "Detect Missing Values", args: {}, reason: "Find columns needing imputation.", category: "cleaning" },
+      { tool: "remove_duplicates", label: "Remove Duplicates", args: {}, reason: "Ensure unique rows before training.", category: "cleaning" },
+      { tool: "remove_outliers", label: "Remove Outliers", args: { column: "" }, reason: "Remove extreme outliers using IQR method.", category: "cleaning" },
+      { tool: "one_hot_encode", label: "One-Hot Encoding", args: { columns_to_encode: "", drop_first: "true" }, reason: "Encode categorical columns to numeric.", category: "preprocessing" },
+      { tool: "standard_scaler", label: "Standard Scaler", args: { columns_to_scale: "" }, reason: "Standardize features before training.", category: "preprocessing" },
+      { tool: "auto_ml_pipeline", label: "AutoML Pipeline", args: { target_column: "", cv_folds: "5", include_preprocessing: "true" }, reason: "Train models on the fully cleaned & scaled dataset.", category: "modeling" },
+      { tool: "feature_importance", label: "Feature Importance", args: { target_column: "" }, reason: "Rank features by predictive power.", category: "modeling" },
+    ],
+  },
+  advanced_ml: {
+    name: "Advanced ML (PCA + Tuning)", icon: "🧠", desc: "PCA reduction, hyperparam search, cross-validation",
+    steps: [
+      { tool: "detect_missing_values", label: "Detect Missing Values", args: {}, reason: "Check what needs fixing.", category: "cleaning" },
+      { tool: "remove_duplicates", label: "Remove Duplicates", args: {}, reason: "Clean before feature engineering.", category: "cleaning" },
+      { tool: "one_hot_encode", label: "One-Hot Encoding", args: { columns_to_encode: "", drop_first: "true" }, reason: "Encode categoricals.", category: "preprocessing" },
+      { tool: "standard_scaler", label: "Standard Scaler", args: { columns_to_scale: "" }, reason: "Required before PCA and SVM.", category: "preprocessing" },
+      { tool: "pca_transform", label: "PCA Reduction", args: { n_components: "8", target_column: "" }, reason: "Reduce dimensions, remove multicollinearity.", category: "preprocessing" },
+      { tool: "auto_ml_pipeline", label: "AutoML Pipeline", args: { target_column: "", cv_folds: "5", include_preprocessing: "true" }, reason: "Train all models on PCA-transformed data.", category: "modeling" },
+      { tool: "hyperparameter_tune", label: "Hyperparameter Tuning", args: { target_column: "", model: "random_forest", cv_folds: "5" }, reason: "Grid search for optimal model settings.", category: "modeling" },
+      { tool: "cross_validate_model", label: "Cross-Validation", args: { target_column: "", model: "random_forest", cv_folds: "10" }, reason: "Get robust performance estimates via k-fold.", category: "modeling" },
+    ],
+  },
+  viz_deep_dive: {
+    name: "Visualization Pack", icon: "📊", desc: "Explore your data visually",
+    steps: [
+      { tool: "dataset_overview", label: "Dataset Overview", args: {}, reason: "Understand which columns to visualize.", category: "eda" },
+      { tool: "create_correlation_heatmap", label: "Correlation Heatmap", args: {}, reason: "See all numeric relationships at once.", category: "visualization" },
+      { tool: "create_box_plot", label: "Box Plot (Outlier Check)", args: {}, reason: "Spot outliers visually.", category: "visualization" },
+      { tool: "correlation_analysis", label: "Correlation Analysis", args: {}, reason: "Find the strongest numeric correlations.", category: "eda" },
+    ],
+  },
+};
+
+function TemplateModal({ onSelect, onClose }: { onSelect: (steps: any[]) => void; onClose: () => void }) {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <motion.div initial={{ scale: 0.93, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.93 }} onClick={e => e.stopPropagation()}
+        style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.borderMd}`, width: "100%", maxWidth: 480 }}>
+        <div style={{ padding: "20px 22px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, marginBottom: 4 }}>Pipeline Templates</div>
+          <div style={{ fontSize: 12, color: C.textSub }}>Start with a curated workflow — customise after loading.</div>
+        </div>
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+          {Object.entries(TEMPLATES).map(([id, tmpl]) => (
+            <button key={id} onClick={() => onSelect(tmpl.steps)}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: C.input, border: `1px solid ${C.border}`, borderRadius: 10, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.cyan + "55"; (e.currentTarget as HTMLElement).style.background = `${C.cyan}08`; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.background = C.input; }}>
+              <div style={{ width: 42, height: 42, borderRadius: 10, background: `${C.cyan}15`, border: `1px solid ${C.cyan}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{tmpl.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: C.head, marginBottom: 2 }}>{tmpl.name}</div>
+                <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{tmpl.desc}</div>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  {tmpl.steps.map((s, i) => <span key={i} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: `${CAT_COLOR[s.category]}18`, color: CAT_COLOR[s.category], fontFamily: C.mono }}>{s.label}</span>)}
+                </div>
+              </div>
+              <span style={{ color: C.cyan, fontSize: 18, opacity: 0.6 }}>→</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "6px 16px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSub, fontSize: 12, cursor: "pointer", fontFamily: C.sans }}>Cancel</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ── MAIN PipelineBuilder ───────────────────────────────────────── */
+export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBuilderProps) {
+  const isEditing = !!initialPipeline;
+
+  // If editing, skip the upload phase and restore existing data
+  const [phase, setPhase] = useState<"upload" | "build" | "run" | "done">(
+    isEditing ? "build" : "upload"
+  );
+  const [sessionId, setSessionId] = useState<string | null>(
+    initialPipeline?.sessionId ?? null
+  );
+  const [datasetMeta, setDatasetMeta] = useState(
+    initialPipeline?.metadata?.datasetMeta ?? ""
+  );
+  const [datasetLabel, setDatasetLabel] = useState(
+    isEditing ? (initialPipeline?.name?.replace(/^Pipeline\s*[–-]\s*/i, "") || "") : ""
+  );
+  const [datasetCols, setDatasetCols] = useState<DatasetColumns>(() => {
+    // Try to parse columns from stored datasetMeta
+    const meta = initialPipeline?.metadata?.datasetMeta ?? "";
+    const numMatch = meta.match(/Numeric columns:\s*([^\n]+)/);
+    const catMatch = meta.match(/Categorical columns:\s*([^\n]+)/);
+    const numericCols = numMatch ? numMatch[1].split(",").map((c: string) => c.trim()).filter(Boolean) : [];
+    const categoricalCols = catMatch ? catMatch[1].split(",").map((c: string) => c.trim()).filter((c: string) => c !== "none") : [];
+    return {
+      all: [...numericCols, ...categoricalCols],
+      numeric: numericCols,
+      categorical: categoricalCols,
+    };
+  });
+
+  // Restore steps from the saved pipeline
+  const [steps, setSteps] = useState<PipelineStep[]>(() => {
+    if (!initialPipeline?.steps?.length) return [];
+    return initialPipeline.steps.map((s: any, i: number) => ({
+      id: s.id || `step-restored-${Date.now()}-${i}`,
+      tool: s.tool,
+      label: s.label,
+      args: s.args || {},
+      reason: s.reason || "",
+      category: s.category || "eda",
+      status: "pending" as const,  // always reset to pending when re-opening
+    }));
+  });
+
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loadingSuggest, setLoadingSuggest] = useState(false);
-  const [pipelineName, setPipelineName] = useState("My Pipeline");
-  const [pipelineId, setPipelineId] = useState<string | null>(null);
+  const [pipelineName, setPipelineName] = useState(initialPipeline?.name ?? "My Pipeline");
+  const [pipelineId, setPipelineId] = useState<string | null>(initialPipeline?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -793,6 +1213,38 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
   const [runningFromIdx, setRunningFromIdx] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [rightTab, setRightTab] = useState<"ai" | "advanced">("ai");
+
+  // Restore session + columns from backend when editing
+  useEffect(() => {
+    if (!isEditing || !initialPipeline?.sessionId) return;
+    fetch(`/api/agent/session/${initialPipeline.sessionId}/metadata`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.found) return;
+        const meta = data.metadata;
+        const numericCols: string[] = meta.numeric_columns || [];
+        const categoricalCols: string[] = meta.categorical_columns || [];
+        setDatasetCols({ all: [...numericCols, ...categoricalCols], numeric: numericCols, categorical: categoricalCols });
+        setDatasetLabel(meta.filename || datasetLabel);
+        const metaSummary = [
+          `Filename: ${meta.filename}`,
+          `Rows: ${meta.row_count?.toLocaleString()}, Columns: ${meta.column_count}`,
+          `Size: ${meta.memory_usage_mb} MB`,
+          `Numeric columns: ${numericCols.join(", ") || "none"}`,
+          `Categorical columns: ${categoricalCols.join(", ") || "none"}`,
+        ].join("\n");
+        setDatasetMeta(metaSummary);
+      })
+      .catch(() => {});
+  }, [isEditing, initialPipeline?.sessionId]);
+
+  // Auto-fetch suggestions when editing (so panel is populated)
+  useEffect(() => {
+    if (isEditing && datasetMeta) {
+      fetchSuggestions(steps, datasetMeta, "");
+    }
+  }, [isEditing, datasetMeta]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const stepsEndRef = useRef<HTMLDivElement>(null);
@@ -814,12 +1266,22 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
       const meta = data.metadata;
       setSessionId(data.session_id);
       setDatasetLabel(meta.filename);
+
+      // Parse column names for smart dropdowns
+      const numericCols: string[] = meta.numeric_columns || [];
+      const categoricalCols: string[] = meta.categorical_columns || [];
+      setDatasetCols({
+        all: [...numericCols, ...categoricalCols],
+        numeric: numericCols,
+        categorical: categoricalCols,
+      });
+
       const metaSummary = [
         `Filename: ${meta.filename}`,
         `Rows: ${meta.row_count?.toLocaleString()}, Columns: ${meta.column_count}`,
         `Size: ${meta.memory_usage_mb} MB`,
-        `Numeric columns: ${meta.numeric_columns?.join(", ") || "none"}`,
-        `Categorical columns: ${meta.categorical_columns?.join(", ") || "none"}`,
+        `Numeric columns: ${numericCols.join(", ") || "none"}`,
+        `Categorical columns: ${categoricalCols.join(", ") || "none"}`,
       ].join("\n");
       setDatasetMeta(metaSummary);
       setPipelineName(`Pipeline – ${meta.filename}`);
@@ -853,11 +1315,7 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
   };
 
   const loadTemplate = (templateSteps: any[]) => {
-    setSteps(templateSteps.map((s, i) => ({
-      ...s,
-      id: `step-tmpl-${Date.now()}-${i}`,
-      status: "pending" as const,
-    })));
+    setSteps(templateSteps.map((s, i) => ({ ...s, id: `step-tmpl-${Date.now()}-${i}`, status: "pending" as const })));
     setShowTemplates(false);
   };
 
@@ -865,10 +1323,10 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
   const updateArg = (stepId: string, key: string, value: string) =>
     setSteps(prev => prev.map(s => s.id === stepId ? { ...s, args: { ...s.args, [key]: value } } : s));
 
-  /* AI summary for a single step */
+  /* AI summary */
   const generateSummary = async (stepId: string) => {
     const step = steps.find(s => s.id === stepId);
-    if (!step || !step.result) return;
+    if (!step?.result) return;
     setSteps(prev => prev.map(s => s.id === stepId ? { ...s, loadingSummary: true } : s));
     try {
       const res = await fetch("/api/llm/run", {
@@ -889,7 +1347,7 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
       }
       if (!text) text = data?.content?.[0]?.text || "";
       setSteps(prev => prev.map(s => s.id === stepId ? { ...s, aiSummary: text, loadingSummary: false } : s));
-    } catch (e) {
+    } catch {
       setSteps(prev => prev.map(s => s.id === stepId ? { ...s, loadingSummary: false } : s));
     }
   };
@@ -909,7 +1367,7 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
         await fetch(`/api/pipelines/${existingId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: pipelineName, steps: payload, status }) });
         return existingId;
       }
-    } catch (e) { console.error(e); return null; }
+    } catch { return null; }
   };
 
   const handleManualSave = async () => {
@@ -923,7 +1381,7 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
   const saveRunHistory = async (pid: string, results: any[]) => {
     try {
       await fetch(`/api/pipelines/${pid}/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId, stepResults: results }) });
-    } catch (e) { console.warn(e); }
+    } catch { }
   };
 
   /* run loop */
@@ -931,17 +1389,13 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
     if (!sessionId) return;
     setPhase("run"); setRunningFromIdx(startIdx);
     const snapshot = [...steps];
-    setSteps(prev => prev.map((s, i) =>
-      i >= startIdx ? { ...s, status: "pending", result: undefined, imageBase64: undefined, errorMsg: undefined, aiSummary: undefined } : s
-    ));
+    setSteps(prev => prev.map((s, i) => i >= startIdx ? { ...s, status: "pending", result: undefined, imageBase64: undefined, errorMsg: undefined, aiSummary: undefined } : s));
     const runResults: any[] = [];
     for (let i = startIdx; i < snapshot.length; i++) {
       setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, status: "running" } : s));
       const step = snapshot[i];
       const args: Record<string, any> = { session_id: sessionId };
-      for (const [k, v] of Object.entries(step.args)) {
-        if (String(v).trim() !== "") args[k] = v;
-      }
+      for (const [k, v] of Object.entries(step.args)) { if (String(v).trim() !== "") args[k] = v; }
       try {
         const res = await fetch("/api/agent/tools", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tool_name: step.tool, arguments: args }) });
         const result = await res.json();
@@ -953,7 +1407,6 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
           imageBase64: img64 ? (img64.startsWith("data:") ? img64 : `data:image/png;base64,${img64}`) : undefined,
           executionMs: result.execution_time_ms, errorMsg: errMsg,
         } : s));
-        // Auto-expand successful results
         if (result.success) setExpandedResult(step.id);
         runResults.push({ tool: step.tool, success: result.success, executionMs: result.execution_time_ms, errorMsg: errMsg });
         await new Promise(r => setTimeout(r, 200));
@@ -962,8 +1415,7 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
         runResults.push({ tool: step.tool, success: false, errorMsg: err.message });
       }
     }
-    setRunningFromIdx(null);
-    setPhase("done");
+    setRunningFromIdx(null); setPhase("done");
     const finalId = await savePipelineToDb(snapshot, "completed", pipelineId);
     if (finalId) { setPipelineId(finalId); await saveRunHistory(finalId, runResults); }
   };
@@ -977,7 +1429,7 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
   const errCount = steps.filter(s => s.status === "error").length;
   const isRunning = phase === "run";
 
-  /* ── UPLOAD PHASE ──────────────────────────────────────────── */
+  /* ── UPLOAD PHASE — only shown for new pipelines ── */
   if (phase === "upload") {
     return (
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
@@ -988,8 +1440,6 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
             Upload a CSV — DSAgent will suggest cleaning, analysis, visualisation and modelling steps. Results are explained in plain English.
           </p>
         </div>
-
-        {/* Upload zone */}
         <div onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleUpload(f); }}
@@ -1008,10 +1458,7 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
             </>
           )}
         </div>
-        <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
-
-        {/* OR start from template */}
+        <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ height: 1, width: 80, background: C.border }} />
           <span style={{ fontSize: 11, color: C.textMute }}>or start from a template</span>
@@ -1023,19 +1470,15 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
           📋 Browse Templates →
         </button>
-
-        <AnimatePresence>
-          {showTemplates && <TemplateModal onSelect={loadTemplate} onClose={() => setShowTemplates(false)} />}
-        </AnimatePresence>
+        <AnimatePresence>{showTemplates && <TemplateModal onSelect={loadTemplate} onClose={() => setShowTemplates(false)} />}</AnimatePresence>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </motion.div>
     );
   }
 
-  /* ── BUILD / RUN / DONE ─────────────────────────────────────── */
+  /* ── BUILD / RUN / DONE ── */
   return (
     <div style={{ display: "flex", gap: 16, height: "100%", overflow: "hidden" }}>
-
       {/* LEFT: pipeline canvas */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0, overflow: "hidden" }}>
 
@@ -1043,16 +1486,31 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
         <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 14px", background: C.card, borderRadius: 11, border: `1px solid ${C.border}`, flexShrink: 0, flexWrap: "wrap" }}>
           <input value={pipelineName} onChange={e => setPipelineName(e.target.value)}
             style={{ background: "transparent", border: "none", outline: "none", color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, flex: 1, minWidth: 100 }} />
-
-          {datasetLabel && (
+        {/* Dataset label / Upload CSV */}
+          {datasetLabel ? (
             <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: `${C.cyan}15`, color: C.cyan, border: `1px solid ${C.cyan}30`, fontFamily: C.mono, flexShrink: 0 }}>{datasetLabel}</span>
+          ) : (
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              style={{ fontSize: 10, padding: "4px 10px", borderRadius: 5, background: `${C.amber}12`, color: C.amber, border: `1px solid ${C.amber}30`, fontFamily: C.mono, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", gap: 4 }}
+              title="Upload a CSV to enable column dropdowns and AI suggestions"
+            >
+              {uploading ? "⏳ Uploading…" : "📂 Upload CSV to run"}
+            </button>
           )}
-
+          <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
           <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, fontFamily: C.mono, fontWeight: 600, flexShrink: 0, background: phase === "done" ? `${C.green}20` : isRunning ? `${C.amber}20` : `${C.violet}15`, color: phase === "done" ? C.green : isRunning ? C.amber : C.violet, border: `1px solid ${phase === "done" ? C.green + "40" : isRunning ? C.amber + "40" : C.violet + "30"}` }}>
             {phase === "done" ? `✓ ${doneCount}/${steps.length}` : isRunning ? `Running… ${doneCount}/${steps.length}` : `${steps.length} steps`}
           </span>
 
-          {/* Template button */}
+          {/* Reorder hint */}
+          {!isRunning && steps.length > 1 && (
+            <span style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono, display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 12 }}>⠿</span> drag to reorder
+            </span>
+          )}
+
           {!isRunning && (
             <button onClick={() => setShowTemplates(true)}
               style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.textSub, fontSize: 11, fontFamily: C.sans, cursor: "pointer", flexShrink: 0, transition: "all 0.15s" }}
@@ -1060,29 +1518,23 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
               📋 Templates
             </button>
           )}
-
-          {/* Export button */}
           {phase === "done" && (
             <button onClick={() => setShowExport(true)}
               style={{ padding: "5px 11px", borderRadius: 6, border: `1px solid ${C.green}33`, background: `${C.green}10`, color: C.green, fontSize: 11, fontFamily: C.sans, cursor: "pointer", flexShrink: 0 }}>
               ↓ Export
             </button>
           )}
-
-          {/* Save */}
           <button onClick={handleManualSave} disabled={saving || !steps.length}
             style={{ padding: "5px 11px", borderRadius: 6, border: `1px solid ${C.borderMd}`, background: saveMsg === "Saved ✓" ? `${C.green}20` : "transparent", color: saveMsg === "Saved ✓" ? C.green : C.textSub, fontSize: 11, fontFamily: C.sans, cursor: !steps.length ? "not-allowed" : "pointer", opacity: !steps.length ? 0.4 : 1, transition: "all 0.2s", flexShrink: 0 }}>
             {saving ? "…" : saveMsg || "💾 Save"}
           </button>
-
-          {/* Run */}
           {!isRunning && (
-            <button onClick={runAll} disabled={!steps.length}
-              style={{ padding: "6px 16px", borderRadius: 7, border: "none", background: !steps.length ? C.border : `linear-gradient(135deg, ${C.cyan}, #0099CC)`, color: !steps.length ? C.textMute : "#030712", fontSize: 11, fontWeight: 700, fontFamily: C.head, cursor: !steps.length ? "not-allowed" : "pointer", flexShrink: 0 }}>
-              ▶ Run All
+            <button onClick={runAll} disabled={!steps.length || !sessionId}
+              title={!sessionId ? "Upload a CSV first to run this pipeline" : undefined}
+              style={{ padding: "6px 16px", borderRadius: 7, border: "none", background: (!steps.length || !sessionId) ? C.border : `linear-gradient(135deg, ${C.cyan}, #0099CC)`, color: (!steps.length || !sessionId) ? C.textMute : "#030712", fontSize: 11, fontWeight: 700, fontFamily: C.head, cursor: (!steps.length || !sessionId) ? "not-allowed" : "pointer", flexShrink: 0 }}>
+              {!sessionId ? "⚠ Upload CSV first" : "▶ Run All"}
             </button>
           )}
-
           {(phase === "done" || isRunning) && (
             <button onClick={resetAll} disabled={isRunning}
               style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.borderMd}`, background: "transparent", color: C.text, fontSize: 11, fontWeight: 600, fontFamily: C.head, cursor: isRunning ? "not-allowed" : "pointer", opacity: isRunning ? 0.5 : 1, flexShrink: 0 }}>
@@ -1091,11 +1543,46 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
           )}
         </div>
 
+        {/* Session-lost warning for editing mode without active dataset */}
+        {isEditing && !sessionId && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+            style={{ padding: "10px 14px", background: `${C.amber}0D`, borderRadius: 9, border: `1px solid ${C.amber}33`, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}
+          >
+            <span style={{ fontSize: 14 }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.amber, fontFamily: C.head, marginBottom: 2 }}>Dataset not loaded</div>
+              <div style={{ fontSize: 10, color: C.textSub, fontFamily: C.mono }}>
+                The original dataset session has expired. Upload the CSV again to run steps and get column dropdowns.
+              </div>
+            </div>
+            <button
+              onClick={() => fileRef.current?.click()}
+              style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${C.amber}44`, background: `${C.amber}15`, color: C.amber, fontSize: 10, fontFamily: C.mono, cursor: "pointer", flexShrink: 0 }}
+            >
+              Upload CSV →
+            </button>
+          </motion.div>
+        )}
+
+        {/* Session restored success banner */}
+        {isEditing && sessionId && datasetLabel && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+            style={{ padding: "8px 14px", background: `${C.green}0A`, borderRadius: 9, border: `1px solid ${C.green}28`, flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <span style={{ fontSize: 12 }}>✅</span>
+            <span style={{ fontSize: 10, color: C.green, fontFamily: C.mono }}>
+              Dataset <strong>{datasetLabel}</strong> loaded — {datasetCols.all.length} columns available · {steps.length} steps restored
+            </span>
+          </motion.div>
+        )}
+
         {/* Progress bar */}
         {isRunning && (
           <div style={{ padding: "8px 14px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 10, color: C.textSub, fontFamily: C.mono }}>
-              <span>Running step {(runningFromIdx ?? 0) + doneCount + errCount - (runningFromIdx ?? 0) + 1 > steps.length ? steps.length : (runningFromIdx ?? 0) + 1}…</span>
+              <span>Running…</span>
               <span>{doneCount + errCount}/{steps.length} · {errCount > 0 ? `${errCount} error(s)` : "no errors"}</span>
             </div>
             <div style={{ height: 3, background: C.border, borderRadius: 2, overflow: "hidden" }}>
@@ -1104,6 +1591,7 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
             </div>
           </div>
         )}
+        
 
         {/* Done banner */}
         {phase === "done" && (
@@ -1124,10 +1612,10 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
           </motion.div>
         )}
 
-        {/* Steps list */}
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2, scrollbarWidth: "thin", scrollbarColor: `${C.border} transparent` }}>
+        {/* ── Steps list with Reorder ── */}
+        <div style={{ flex: 1, overflowY: "auto", paddingRight: 2, scrollbarWidth: "thin", scrollbarColor: `${C.border} transparent` }}>
           {steps.length === 0 ? (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.textMute, fontSize: 12, gap: 10, minHeight: 200 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.textMute, fontSize: 12, gap: 10, minHeight: 200 }}>
               <div style={{ fontSize: 32 }}>⚡</div>
               <div>Add steps from the suggestions panel →</div>
               <button onClick={() => setShowTemplates(true)}
@@ -1136,55 +1624,143 @@ export default function PipelineBuilder({ onSaved }: PipelineBuilderProps) {
               </button>
             </div>
           ) : (
-            <AnimatePresence>
-              {steps.map((step, idx) => (
-                <StepCard key={step.id} step={step} idx={idx} phase={phase} isRunning={isRunning}
-                  expanded={expandedResult === step.id}
-                  onToggleExpand={() => setExpandedResult(expandedResult === step.id ? null : step.id)}
-                  onRemove={() => removeStep(step.id)}
-                  onUpdateArg={(k, v) => updateArg(step.id, k, v)}
-                  onRunFrom={() => runFrom(idx)}
-                  onGenerateSummary={() => generateSummary(step.id)}
-                />
-              ))}
-            </AnimatePresence>
+            <Reorder.Group
+              axis="y"
+              values={steps}
+              onReorder={isRunning ? undefined : (newOrder) => setSteps(newOrder)}
+              style={{ display: "flex", flexDirection: "column", gap: 8, listStyle: "none", padding: 0, margin: 0 }}
+              as="div"
+            >
+              <AnimatePresence>
+                {steps.map((step, idx) => (
+                  <StepCard
+                    key={step.id}
+                    step={step}
+                    idx={idx}
+                    phase={phase}
+                    isRunning={isRunning}
+                    expanded={expandedResult === step.id}
+                    onToggleExpand={() => setExpandedResult(expandedResult === step.id ? null : step.id)}
+                    onRemove={() => removeStep(step.id)}
+                    onUpdateArg={(k, v) => updateArg(step.id, k, v)}
+                    onRunFrom={() => runFrom(idx)}
+                    onGenerateSummary={() => generateSummary(step.id)}
+                    datasetCols={datasetCols}
+                  />
+                ))}
+              </AnimatePresence>
+              <div ref={stepsEndRef} style={{ height: 1 }} />
+            </Reorder.Group>
           )}
-          <div ref={stepsEndRef} style={{ height: 1 }} />
         </div>
       </div>
 
-      {/* RIGHT: suggestions panel */}
-      <div style={{ width: 290, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10, overflow: "hidden" }}>
-        <div style={{ padding: "12px 14px", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: C.text, fontFamily: C.head }}>🤖 AI Suggestions</span>
-            <button onClick={() => fetchSuggestions(steps, datasetMeta, getLastResultSummary())} disabled={loadingSuggest}
-              style={{ background: "none", border: `1px solid ${C.borderMd}`, borderRadius: 5, padding: "3px 8px", color: C.cyan, fontSize: 10, fontFamily: C.mono, cursor: "pointer", opacity: loadingSuggest ? 0.5 : 1 }}>
-              {loadingSuggest ? "…" : "↻"}
+      {/* RIGHT: suggestions + advanced tools panel */}
+      <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8, overflow: "hidden" }}>
+
+        {/* Tab header */}
+        <div style={{ display: "flex", gap: 0, background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden", flexShrink: 0 }}>
+          {(["ai", "advanced"] as const).map(tab => (
+            <button key={tab} onClick={() => setRightTab(tab)}
+              style={{ flex: 1, padding: "9px 6px", background: rightTab === tab ? `${C.cyan}12` : "transparent", border: "none", borderBottom: rightTab === tab ? `2px solid ${C.cyan}` : "2px solid transparent", color: rightTab === tab ? C.cyan : C.textMute, fontSize: 10, fontFamily: C.mono, fontWeight: 600, cursor: "pointer", transition: "all 0.15s", letterSpacing: "0.04em" }}>
+              {tab === "ai" ? "🤖 AI Suggestions" : "⚙️ Advanced Tools"}
             </button>
-          </div>
-          <p style={{ fontSize: 10, color: C.textMute, margin: 0, lineHeight: 1.5 }}>Click a card to add it to the pipeline.</p>
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 7, scrollbarWidth: "thin", scrollbarColor: `${C.border} transparent` }}>
-          {loadingSuggest && [1, 2, 3].map(i => (
-            <div key={i} style={{ height: 80, borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, opacity: 0.3 + i * 0.1 }} />
           ))}
-          {!loadingSuggest && !suggestions.length && (
-            <div style={{ padding: 14, textAlign: "center", color: C.textMute, fontSize: 11, background: C.card, borderRadius: 10, border: `1px solid ${C.border}` }}>
-              {phase === "done" ? "✓ Done. Click ↻ for more steps." : "No suggestions yet. Click ↻ to refresh."}
-            </div>
-          )}
-          <AnimatePresence>
-            {suggestions.map((s, i) => <SuggestionCard key={s.tool + i} suggestion={s} onAdd={() => addStep(s)} disabled={isRunning} />)}
-          </AnimatePresence>
         </div>
 
-        {/* Dataset info card */}
-        {datasetMeta && (
+        {/* AI Suggestions tab */}
+        {rightTab === "ai" && (
+          <>
+            <div style={{ padding: "8px 12px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 10, color: C.textMute }}>Context-aware suggestions</span>
+              <button onClick={() => fetchSuggestions(steps, datasetMeta, getLastResultSummary())} disabled={loadingSuggest}
+                style={{ background: "none", border: `1px solid ${C.borderMd}`, borderRadius: 5, padding: "3px 8px", color: C.cyan, fontSize: 10, fontFamily: C.mono, cursor: "pointer", opacity: loadingSuggest ? 0.5 : 1 }}>
+                {loadingSuggest ? "…" : "↻ Refresh"}
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 7, scrollbarWidth: "thin", scrollbarColor: `${C.border} transparent` }}>
+              {loadingSuggest && [1, 2, 3].map(i => <div key={i} style={{ height: 80, borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, opacity: 0.3 + i * 0.1 }} />)}
+              {!loadingSuggest && !suggestions.length && (
+                <div style={{ padding: 14, textAlign: "center", color: C.textMute, fontSize: 11, background: C.card, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                  {phase === "done" ? "✓ Done. Click ↻ for more steps." : "No suggestions yet. Click ↻ to refresh."}
+                </div>
+              )}
+              <AnimatePresence>
+                {suggestions.map((s, i) => <SuggestionCard key={s.tool + i} suggestion={s} onAdd={() => addStep(s)} disabled={isRunning} />)}
+              </AnimatePresence>
+            </div>
+          </>
+        )}
+
+        {/* Advanced Tools tab */}
+        {rightTab === "advanced" && (
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 5, scrollbarWidth: "thin", scrollbarColor: `${C.border} transparent` }}>
+            {/* Group by category */}
+            {(["preprocessing", "cleaning", "modeling"] as const).map(cat => {
+              const tools = Object.entries(ADVANCED_TOOLS).filter(([, t]) => t.category === cat);
+              if (!tools.length) return null;
+              const catColor = CAT_COLOR[cat] || C.textSub;
+              return (
+                <div key={cat}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: catColor, fontFamily: C.mono, letterSpacing: "0.09em", textTransform: "uppercase", padding: "6px 2px 4px", display: "flex", alignItems: "center", gap: 5 }}>
+                    <span>{CAT_ICON[cat]}</span> {cat}
+                  </div>
+                  {tools.map(([toolKey, tool]) => {
+                    const alreadyAdded = steps.some(s => s.tool === toolKey);
+                    return (
+                      <motion.div key={toolKey}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        onClick={() => !isRunning && !alreadyAdded && addStep({ tool: toolKey, label: tool.label, args: { ...tool.args }, reason: tool.reason, category: tool.category })}
+                        style={{
+                          padding: "9px 11px", borderRadius: 8, background: alreadyAdded ? `${catColor}0A` : C.card,
+                          border: `1px solid ${alreadyAdded ? catColor + "30" : C.border}`,
+                          cursor: isRunning || alreadyAdded ? "default" : "pointer",
+                          opacity: alreadyAdded ? 0.6 : 1,
+                          transition: "all 0.13s",
+                        }}
+                        whileHover={!isRunning && !alreadyAdded ? { borderColor: catColor + "66", backgroundColor: `${catColor}0D` } : {}}
+                      >
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: alreadyAdded ? catColor : C.text, fontFamily: C.head, marginBottom: 2, display: "flex", alignItems: "center", gap: 5 }}>
+                              {tool.label}
+                              {alreadyAdded && <span style={{ fontSize: 8, color: catColor, fontFamily: C.mono }}>✓ added</span>}
+                            </div>
+                            <div style={{ fontSize: 9.5, color: C.textMute, lineHeight: 1.5 }}>{tool.reason.split(".")[0]}.</div>
+                          </div>
+                          {!alreadyAdded && !isRunning && (
+                            <span style={{ fontSize: 14, color: catColor, opacity: 0.5, flexShrink: 0, marginTop: 1 }}>+</span>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Column reference — always shown at bottom */}
+        {datasetCols.all.length > 0 && (
           <div style={{ padding: "10px 12px", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, flexShrink: 0 }}>
-            <div style={{ fontSize: 9, fontWeight: 600, color: C.textMute, marginBottom: 5, fontFamily: C.mono, letterSpacing: "0.07em" }}>DATASET</div>
-            <pre style={{ fontSize: 9.5, color: C.textSub, fontFamily: C.mono, margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{datasetMeta}</pre>
+            <div style={{ fontSize: 9, fontWeight: 600, color: C.textMute, marginBottom: 6, fontFamily: C.mono, letterSpacing: "0.07em" }}>DATASET COLUMNS</div>
+            {datasetCols.numeric.length > 0 && (
+              <div style={{ marginBottom: 5 }}>
+                <div style={{ fontSize: 9, color: C.cyan, fontFamily: C.mono, marginBottom: 3 }}># numeric ({datasetCols.numeric.length})</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                  {datasetCols.numeric.map(c => <span key={c} style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: `${C.cyan}12`, color: C.cyan, fontFamily: C.mono }}>{c}</span>)}
+                </div>
+              </div>
+            )}
+            {datasetCols.categorical.length > 0 && (
+              <div>
+                <div style={{ fontSize: 9, color: C.violet, fontFamily: C.mono, marginBottom: 3 }}>A categorical ({datasetCols.categorical.length})</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                  {datasetCols.categorical.map(c => <span key={c} style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: `${C.violet}12`, color: C.violet, fontFamily: C.mono }}>{c}</span>)}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
