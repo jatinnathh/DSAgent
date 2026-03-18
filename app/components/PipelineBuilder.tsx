@@ -1627,7 +1627,9 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
             <Reorder.Group
               axis="y"
               values={steps}
-              onReorder={isRunning ? undefined : (newOrder) => setSteps(newOrder)}
+              onReorder={(newOrder) => {
+                if (!isRunning) setSteps(newOrder);
+              }}
               style={{ display: "flex", flexDirection: "column", gap: 8, listStyle: "none", padding: 0, margin: 0 }}
               as="div"
             >
