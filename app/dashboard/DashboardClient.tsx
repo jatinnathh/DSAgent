@@ -909,10 +909,10 @@ function OverviewContent({ user, setActiveView }: { user: { firstName: string | 
               {runningCount > 0
                 ? <>You have <span style={{ color: C.amber, fontWeight: 600 }}>{runningCount} pipeline{runningCount !== 1 ? "s" : ""} running</span> right now.</>
                 : completedCount > 0
-                ? <>You've completed <span style={{ color: C.green, fontWeight: 600 }}>{completedCount} pipeline{completedCount !== 1 ? "s" : ""}</span> successfully.</>
-                : <>Welcome! Build your first pipeline or start a chat with AI Analyst.</>
+                  ? <>You've completed <span style={{ color: C.green, fontWeight: 600 }}>{completedCount} pipeline{completedCount !== 1 ? "s" : ""}</span> successfully.</>
+                  : <>Welcome! Build your first pipeline or start a chat with AI Analyst.</>
               }
-              {data?.totalChats > 0 && <> You have <span style={{ color: C.cyan, fontWeight: 600 }}>{data.totalChats} chat session{data.totalChats !== 1 ? "s" : ""}</span> saved.</>}
+              {(data?.totalChats ?? 0) > 0 && <> You have <span style={{ color: C.cyan, fontWeight: 600 }}>{data!.totalChats} chat session{data!.totalChats !== 1 ? "s" : ""}</span> saved.</>}
             </p>
           )}
           <div style={{ display: "flex", gap: 8 }}>
