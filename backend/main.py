@@ -221,6 +221,44 @@ async def get_session_metadata(session_id: str):
         return {"session_id": session_id, "found": False, "error": str(e)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Add this endpoint to backend/main.py
+# Place it after the existing /session/{session_id}/metadata endpoint
+
+from fastapi.responses import StreamingResponse
+import io
+
+@app.get("/session/{session_id}/download")
+async def download_session_csv(session_id: str):
+    """
+    Download the current (modified) state of a session's dataset as CSV.
+    This reflects all pipeline steps that have been applied (cleaning, encoding, etc.)
+    """
+    try:
+        from tools.cleaning import get_dataframe
+        
+        df = get_dataframe(session_id)
+        
+        # Convert DataFrame to CSV string
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False)
+        csv_buffer.seek(0)
+        csv_content = csv_buffer.getvalue()
+        
+        return StreamingResponse(
+            iter([csv_content]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=session_{session_id}_modified.csv",
+                "Content-Length": str(len(csv_content.encode("utf-8"))),
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+        
 @app.get("/session/{session_id}/quality")
 async def get_data_quality(session_id: str):
     """
