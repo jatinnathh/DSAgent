@@ -18,6 +18,17 @@ const C = {
 const CAT_COLOR: Record<string, string> = {
   cleaning: C.amber, eda: C.cyan, visualization: C.violet, modeling: C.green, preprocessing: C.pink,
 };
+function dlText(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
 const CAT_ICON: Record<string, string> = {
   cleaning: "🧹", eda: "🔍", visualization: "📊", modeling: "🤖", preprocessing: "⚙️",
 };
@@ -28,21 +39,21 @@ const COL_ARG_MAP: Record<string, "all" | "numeric" | "categorical"> = {
 const MULTI_COL_ARGS = new Set(["columns_to_scale", "columns_to_encode", "feature_columns"]);
 
 export const ADVANCED_TOOLS: Record<string, { label: string; category: string; args: Record<string, any>; reason: string }> = {
-  standard_scaler:      { label: "Standard Scaler (Z-score)",           category: "preprocessing", args: { columns_to_scale: "" }, reason: "Standardize numeric features to zero mean and unit variance." },
-  min_max_scaler:       { label: "Min-Max Scaler [0,1]",                category: "preprocessing", args: { columns_to_scale: "", feature_range_min: "0", feature_range_max: "1" }, reason: "Rescale features to [0,1] range." },
-  robust_scaler:        { label: "Robust Scaler (IQR)",                 category: "preprocessing", args: { columns_to_scale: "" }, reason: "Scale using median and IQR — resistant to outliers." },
-  log_transform:        { label: "Log Transform (skew fix)",            category: "preprocessing", args: { column: "" }, reason: "Apply log1p transform to reduce right skew." },
-  one_hot_encode:       { label: "One-Hot Encoding",                    category: "preprocessing", args: { columns_to_encode: "", drop_first: "true" }, reason: "Convert categorical columns to binary dummy variables." },
-  label_encode:         { label: "Label Encoding (ordinal)",            category: "preprocessing", args: { column: "" }, reason: "Map categories to integers." },
-  pca_transform:        { label: "PCA Dimensionality Reduction",        category: "preprocessing", args: { n_components: "5", target_column: "" }, reason: "Reduce feature dimensions via PCA." },
-  polynomial_features:  { label: "Polynomial Features",                category: "preprocessing", args: { columns_to_scale: "", degree: "2" }, reason: "Create interaction and polynomial terms." },
-  drop_columns:         { label: "Drop Columns",                        category: "cleaning",      args: { column: "" }, reason: "Remove a column from the dataset." },
-  train_test_split:     { label: "Train/Test Split",                    category: "preprocessing", args: { target_column: "", test_size: "0.2", stratify: "false" }, reason: "Split dataset into train/test sets." },
-  auto_ml_pipeline:     { label: "AutoML Pipeline",                    category: "modeling",      args: { target_column: "", cv_folds: "5" }, reason: "Train RF, XGBoost, LightGBM with CV. Picks best model." },
-  cross_validate_model: { label: "Cross-Validate Model",               category: "modeling",      args: { target_column: "", model: "random_forest", cv_folds: "5" }, reason: "Run k-fold cross-validation." },
-  hyperparameter_tune:  { label: "Hyperparameter Tuning",              category: "modeling",      args: { target_column: "", model: "random_forest", cv_folds: "3" }, reason: "Grid search for optimal hyperparameters." },
-  feature_importance:   { label: "Feature Importance",                 category: "modeling",      args: { target_column: "" }, reason: "Rank features by predictive importance." },
-  model_evaluation:     { label: "Model Evaluation Report",            category: "modeling",      args: { target_column: "", model: "random_forest" }, reason: "Full metric suite + confusion matrix chart." },
+  standard_scaler: { label: "Standard Scaler (Z-score)", category: "preprocessing", args: { columns_to_scale: "" }, reason: "Standardize numeric features to zero mean and unit variance." },
+  min_max_scaler: { label: "Min-Max Scaler [0,1]", category: "preprocessing", args: { columns_to_scale: "", feature_range_min: "0", feature_range_max: "1" }, reason: "Rescale features to [0,1] range." },
+  robust_scaler: { label: "Robust Scaler (IQR)", category: "preprocessing", args: { columns_to_scale: "" }, reason: "Scale using median and IQR — resistant to outliers." },
+  log_transform: { label: "Log Transform (skew fix)", category: "preprocessing", args: { column: "" }, reason: "Apply log1p transform to reduce right skew." },
+  one_hot_encode: { label: "One-Hot Encoding", category: "preprocessing", args: { columns_to_encode: "", drop_first: "true" }, reason: "Convert categorical columns to binary dummy variables." },
+  label_encode: { label: "Label Encoding (ordinal)", category: "preprocessing", args: { column: "" }, reason: "Map categories to integers." },
+  pca_transform: { label: "PCA Dimensionality Reduction", category: "preprocessing", args: { n_components: "5", target_column: "" }, reason: "Reduce feature dimensions via PCA." },
+  polynomial_features: { label: "Polynomial Features", category: "preprocessing", args: { columns_to_scale: "", degree: "2" }, reason: "Create interaction and polynomial terms." },
+  drop_columns: { label: "Drop Columns", category: "cleaning", args: { column: "" }, reason: "Remove a column from the dataset." },
+  train_test_split: { label: "Train/Test Split", category: "preprocessing", args: { target_column: "", test_size: "0.2", stratify: "false" }, reason: "Split dataset into train/test sets." },
+  auto_ml_pipeline: { label: "AutoML Pipeline", category: "modeling", args: { target_column: "", cv_folds: "5" }, reason: "Train RF, XGBoost, LightGBM with CV. Picks best model." },
+  cross_validate_model: { label: "Cross-Validate Model", category: "modeling", args: { target_column: "", model: "random_forest", cv_folds: "5" }, reason: "Run k-fold cross-validation." },
+  hyperparameter_tune: { label: "Hyperparameter Tuning", category: "modeling", args: { target_column: "", model: "random_forest", cv_folds: "3" }, reason: "Grid search for optimal hyperparameters." },
+  feature_importance: { label: "Feature Importance", category: "modeling", args: { target_column: "" }, reason: "Rank features by predictive importance." },
+  model_evaluation: { label: "Model Evaluation Report", category: "modeling", args: { target_column: "", model: "random_forest" }, reason: "Full metric suite + confusion matrix chart." },
 };
 
 export type PipelineStep = {
@@ -418,7 +429,7 @@ function DatasetOverviewResult({ r }: { r: any }) {
           <div style={{ overflowX: "auto" as const }}>
             <table style={{ width: "100%", borderCollapse: "collapse" as const, fontSize: 9.5, fontFamily: C.mono }}>
               <thead>
-                <tr>{["Column","Mean","Median","Std","Min","Max"].map(h => (
+                <tr>{["Column", "Mean", "Median", "Std", "Min", "Max"].map(h => (
                   <th key={h} style={{ padding: "4px 8px", textAlign: "left" as const, color: C.textMute, fontWeight: 600, borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" as const }}>{h}</th>
                 ))}</tr>
               </thead>
@@ -583,7 +594,7 @@ function AISummary({ step, onGenerate }: { step: PipelineStep; onGenerate: () =>
         <span>✨</span>
         <span style={{ fontSize: 10, fontWeight: 600, color: C.violet, fontFamily: C.head }}>AI Insight</span>
         {!step.aiSummary && !step.loadingSummary && <button onClick={onGenerate} style={{ marginLeft: "auto", fontSize: 9, padding: "2px 8px", borderRadius: 4, border: `1px solid ${C.violet}44`, background: `${C.violet}15`, color: C.violet, cursor: "pointer", fontFamily: C.mono }}>Explain →</button>}
-        {step.loadingSummary && <div style={{ marginLeft: "auto", display: "flex", gap: 3 }}>{[0,1,2].map(i => <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: C.violet, animation: `dot 1.2s ${i*0.2}s ease-in-out infinite` }} />)}</div>}
+        {step.loadingSummary && <div style={{ marginLeft: "auto", display: "flex", gap: 3 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 4, height: 4, borderRadius: "50%", background: C.violet, animation: `dot 1.2s ${i * 0.2}s ease-in-out infinite` }} />)}</div>}
       </div>
       {step.aiSummary && <p style={{ fontSize: 12, color: C.textSub, lineHeight: 1.65, margin: 0 }}>{step.aiSummary}</p>}
     </div>
@@ -680,44 +691,44 @@ function ColsPanel({ datasetCols }: { datasetCols: DatasetColumns }) {
 // ══════════════════════════════════════════════════════════════════
 export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBuilderProps) {
   const isEditing = !!initialPipeline;
-  const [phase, setPhase] = useState<"upload"|"build"|"run"|"done">(isEditing ? "build" : "upload");
-  const [sessionId, setSessionId] = useState<string|null>(initialPipeline?.sessionId ?? null);
+  const [phase, setPhase] = useState<"upload" | "build" | "run" | "done">(isEditing ? "build" : "upload");
+  const [sessionId, setSessionId] = useState<string | null>(initialPipeline?.sessionId ?? null);
   const [datasetMeta, setDatasetMeta] = useState(initialPipeline?.metadata?.datasetMeta ?? "");
-  const [datasetLabel, setDatasetLabel] = useState(isEditing ? (initialPipeline?.name?.replace(/^Pipeline\s*[–-]\s*/i,"") || "") : "");
+  const [datasetLabel, setDatasetLabel] = useState(isEditing ? (initialPipeline?.name?.replace(/^Pipeline\s*[–-]\s*/i, "") || "") : "");
   const [datasetCols, setDatasetCols] = useState<DatasetColumns>(() => {
     const meta = initialPipeline?.metadata?.datasetMeta ?? "";
     const nm = meta.match(/Numeric columns:\s*([^\n]+)/);
     const cm = meta.match(/Categorical columns:\s*([^\n]+)/);
-    const nc = nm ? nm[1].split(",").map((c:string) => c.trim()).filter(Boolean) : [];
-    const cc = cm ? cm[1].split(",").map((c:string) => c.trim()).filter((c:string) => c !== "none") : [];
-    return { all:[...nc,...cc], numeric:nc, categorical:cc };
+    const nc = nm ? nm[1].split(",").map((c: string) => c.trim()).filter(Boolean) : [];
+    const cc = cm ? cm[1].split(",").map((c: string) => c.trim()).filter((c: string) => c !== "none") : [];
+    return { all: [...nc, ...cc], numeric: nc, categorical: cc };
   });
   const [steps, setSteps] = useState<PipelineStep[]>(() => {
     if (!initialPipeline?.steps?.length) return [];
-    return initialPipeline.steps.map((s:any,i:number) => ({
+    return initialPipeline.steps.map((s: any, i: number) => ({
       id: s.id || `step-${Date.now()}-${i}`,
-      tool: s.tool, label: s.label, args: s.args||{}, reason: s.reason||"",
-      category: s.category||"eda", status: "pending" as const
+      tool: s.tool, label: s.label, args: s.args || {}, reason: s.reason || "",
+      category: s.category || "eda", status: "pending" as const
     }));
   });
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loadingSuggest, setLoadingSuggest] = useState(false);
   const [pipelineName, setPipelineName] = useState(initialPipeline?.name ?? "My Pipeline");
-  const [pipelineId, setPipelineId] = useState<string|null>(initialPipeline?.id ?? null);
+  const [pipelineId, setPipelineId] = useState<string | null>(initialPipeline?.id ?? null);
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string|null>(null);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [expandedResult, setExpandedResult] = useState<string|null>(null);
+  const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showDownloadCSV, setShowDownloadCSV] = useState(false);
-  const [rightTab, setRightTab] = useState<"ai"|"advanced">("ai");
+  const [rightTab, setRightTab] = useState<"ai" | "advanced">("ai");
   const [showFlows, setShowFlows] = useState(false);
   const [renamingPipeline, setRenamingPipeline] = useState(false);
 
   const pipelineCreatedRef = useRef(false);
-  const pipelineIdRef = useRef<string|null>(initialPipeline?.id ?? null);
+  const pipelineIdRef = useRef<string | null>(initialPipeline?.id ?? null);
   const flows = useRF();
   const activeFlows = flows.filter(f => f.status === "running").length;
   const recentErrors = flows.filter(f => f.status === "error" && Date.now() - f.timestamp.getTime() < 30000).length;
@@ -727,7 +738,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
 
   useEffect(() => {
     if (stepsEndRef.current && steps.length > 0)
-      stepsEndRef.current.scrollIntoView({ behavior:"smooth", block:"nearest" });
+      stepsEndRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [steps.length]);
 
   useEffect(() => {
@@ -744,17 +755,17 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
       .then(data => {
         if (!data?.found) return;
         const meta = data.metadata;
-        const nc:string[] = meta.numeric_columns||[], cc:string[] = meta.categorical_columns||[];
-        setDatasetCols({ all:[...nc,...cc], numeric:nc, categorical:cc });
+        const nc: string[] = meta.numeric_columns || [], cc: string[] = meta.categorical_columns || [];
+        setDatasetCols({ all: [...nc, ...cc], numeric: nc, categorical: cc });
         setDatasetLabel(meta.filename || datasetLabel);
         setDatasetMeta([
           `Filename: ${meta.filename}`,
           `Rows: ${meta.row_count?.toLocaleString()}, Columns: ${meta.column_count}`,
           `Size: ${meta.memory_usage_mb} MB`,
-          `Numeric columns: ${nc.join(", ")||"none"}`,
-          `Categorical columns: ${cc.join(", ")||"none"}`
+          `Numeric columns: ${nc.join(", ") || "none"}`,
+          `Categorical columns: ${cc.join(", ") || "none"}`
         ].join("\n"));
-      }).catch(() => {});
+      }).catch(() => { });
   }, [isEditing, initialPipeline?.sessionId]);
 
   useEffect(() => { if (isEditing && datasetMeta) fetchSuggestions(steps, datasetMeta, ""); }, [isEditing, datasetMeta]);
@@ -762,112 +773,114 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
   const handleUpload = async (file: File) => {
     if (!file.name.endsWith(".csv")) return;
     setUploading(true);
-    const rfId = addRF({ type:"upload", label:`Uploading ${file.name}`, detail:`${(file.size/1024).toFixed(1)} KB`, status:"running" });
+    const rfId = addRF({ type: "upload", label: `Uploading ${file.name}`, detail: `${(file.size / 1024).toFixed(1)} KB`, status: "running" });
     try {
       const fd = new FormData(); fd.append("file", file);
       const t0 = Date.now();
-      const res = await fetch("/api/agent/upload", { method:"POST", body:fd });
+      const res = await fetch("/api/agent/upload", { method: "POST", body: fd });
       if (!res.ok) throw new Error("Upload failed");
       const data = await res.json();
       const meta = data.metadata;
-      updateRF(rfId, { status:"success", durationMs:Date.now()-t0, detail:`${meta.row_count?.toLocaleString()} rows × ${meta.column_count} cols` });
+      updateRF(rfId, { status: "success", durationMs: Date.now() - t0, detail: `${meta.row_count?.toLocaleString()} rows × ${meta.column_count} cols` });
       setSessionId(data.session_id);
       setDatasetLabel(meta.filename);
-      const nc:string[] = meta.numeric_columns||[], cc:string[] = meta.categorical_columns||[];
-      setDatasetCols({ all:[...nc,...cc], numeric:nc, categorical:cc });
+      const nc: string[] = meta.numeric_columns || [], cc: string[] = meta.categorical_columns || [];
+      setDatasetCols({ all: [...nc, ...cc], numeric: nc, categorical: cc });
       const ms = [
         `Filename: ${meta.filename}`,
         `Rows: ${meta.row_count?.toLocaleString()}, Columns: ${meta.column_count}`,
         `Size: ${meta.memory_usage_mb} MB`,
-        `Numeric columns: ${nc.join(", ")||"none"}`,
-        `Categorical columns: ${cc.join(", ")||"none"}`
+        `Numeric columns: ${nc.join(", ") || "none"}`,
+        `Categorical columns: ${cc.join(", ") || "none"}`
       ].join("\n");
       setDatasetMeta(ms);
       setPipelineName(`Pipeline – ${meta.filename}`);
       setPhase("build");
       await fetchSuggestions([], ms, "Dataset just uploaded.");
-    } catch (e:any) {
-      updateRF(rfId, { status:"error", detail:e.message });
+    } catch (e: any) {
+      updateRF(rfId, { status: "error", detail: e.message });
     } finally { setUploading(false); }
   };
 
-  const fetchSuggestions = async (currentSteps:PipelineStep[], meta:string, lastResult:string) => {
+  const fetchSuggestions = async (currentSteps: PipelineStep[], meta: string, lastResult: string) => {
     setLoadingSuggest(true); setSuggestions([]);
-    const rfId = addRF({ type:"llm", label:"LLM analysing dataset for suggestions", detail:`${currentSteps.length} steps completed`, status:"running" });
+    const rfId = addRF({ type: "llm", label: "LLM analysing dataset for suggestions", detail: `${currentSteps.length} steps completed`, status: "running" });
     const t0 = Date.now();
     try {
       const res = await fetch("/api/pipelines/suggest", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ completedSteps:currentSteps.map(s=>({tool:s.tool,label:s.label})), datasetMeta:meta, lastResult })
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completedSteps: currentSteps.map(s => ({ tool: s.tool, label: s.label })), datasetMeta: meta, lastResult })
       });
       const data = await res.json();
-      updateRF(rfId, { status:"success", durationMs:Date.now()-t0, detail:`${data.suggestions?.length??0} suggestions returned` });
+      updateRF(rfId, { status: "success", durationMs: Date.now() - t0, detail: `${data.suggestions?.length ?? 0} suggestions returned` });
       const existing = new Set(currentSteps.map(s => s.tool));
-      setSuggestions((data.suggestions||[]).filter((s:any) => !existing.has(s.tool)));
-    } catch (e:any) {
-      updateRF(rfId, { status:"error", detail:e.message });
+      setSuggestions((data.suggestions || []).filter((s: any) => !existing.has(s.tool)));
+    } catch (e: any) {
+      updateRF(rfId, { status: "error", detail: e.message });
     } finally { setLoadingSuggest(false); }
   };
 
-  const addStep = (sg:any) => {
-    setSteps(prev => [...prev, { id:`step-${Date.now()}-${Math.random()}`, tool:sg.tool, label:sg.label, args:sg.args||{}, reason:sg.reason, category:sg.category, status:"pending" }]);
+  const addStep = (sg: any) => {
+    setSteps(prev => [...prev, { id: `step-${Date.now()}-${Math.random()}`, tool: sg.tool, label: sg.label, args: sg.args || {}, reason: sg.reason, category: sg.category, status: "pending" }]);
     setSuggestions(prev => prev.filter(s => s.tool !== sg.tool));
   };
-  const loadTemplate = (ts:any[]) => {
-    setSteps(ts.map((s,i) => ({ ...s, id:`step-tmpl-${Date.now()}-${i}`, status:"pending" as const })));
+  const loadTemplate = (ts: any[]) => {
+    setSteps(ts.map((s, i) => ({ ...s, id: `step-tmpl-${Date.now()}-${i}`, status: "pending" as const })));
     setShowTemplates(false);
   };
-  const removeStep = (id:string) => setSteps(prev => prev.filter(s => s.id !== id));
-  const updateArg = (stepId:string, key:string, value:string) =>
-    setSteps(prev => prev.map(s => s.id === stepId ? {...s, args:{...s.args, [key]:value}} : s));
+  const removeStep = (id: string) => setSteps(prev => prev.filter(s => s.id !== id));
+  const updateArg = (stepId: string, key: string, value: string) =>
+    setSteps(prev => prev.map(s => s.id === stepId ? { ...s, args: { ...s.args, [key]: value } } : s));
 
-  const generateSummary = async (stepId:string) => {
+  const generateSummary = async (stepId: string) => {
     const step = steps.find(s => s.id === stepId); if (!step?.result) return;
-    setSteps(prev => prev.map(s => s.id===stepId ? {...s, loadingSummary:true} : s));
-    const rfId = addRF({ type:"llm", label:`LLM explaining: ${step.label}`, status:"running" });
+    setSteps(prev => prev.map(s => s.id === stepId ? { ...s, loadingSummary: true } : s));
+    const rfId = addRF({ type: "llm", label: `LLM explaining: ${step.label}`, status: "running" });
     const t0 = Date.now();
     try {
       const res = await fetch("/api/llm/run", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ messages:[
-          { role:"system", content:"Explain the data science result in 2-3 plain English sentences. No markdown." },
-          { role:"user", content:`Step: ${step.label}\nTool: ${step.tool}\nResult: ${JSON.stringify(step.result).slice(0,1000)}\n\nExplain what this means.` }
-        ]})
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: "Explain the data science result in 2-3 plain English sentences. No markdown." },
+            { role: "user", content: `Step: ${step.label}\nTool: ${step.tool}\nResult: ${JSON.stringify(step.result).slice(0, 1000)}\n\nExplain what this means.` }
+          ]
+        })
       });
       const data = await res.json();
       let text = "";
-      for (const item of (data?.output||[])) { for (const block of (item?.content||[])) { if (block.type==="output_text") text += block.text||""; } }
+      for (const item of (data?.output || [])) { for (const block of (item?.content || [])) { if (block.type === "output_text") text += block.text || ""; } }
       if (!text) text = data?.content?.[0]?.text || "";
-      updateRF(rfId, { status:"success", durationMs:Date.now()-t0 });
-      setSteps(prev => prev.map(s => s.id===stepId ? {...s, aiSummary:text, loadingSummary:false} : s));
-    } catch (e:any) {
-      updateRF(rfId, { status:"error", detail:e.message });
-      setSteps(prev => prev.map(s => s.id===stepId ? {...s, loadingSummary:false} : s));
+      updateRF(rfId, { status: "success", durationMs: Date.now() - t0 });
+      setSteps(prev => prev.map(s => s.id === stepId ? { ...s, aiSummary: text, loadingSummary: false } : s));
+    } catch (e: any) {
+      updateRF(rfId, { status: "error", detail: e.message });
+      setSteps(prev => prev.map(s => s.id === stepId ? { ...s, loadingSummary: false } : s));
     }
   };
 
-  const savePipelineToDb = async (currentSteps:PipelineStep[], status:string): Promise<string|null> => {
+  const savePipelineToDb = async (currentSteps: PipelineStep[], status: string): Promise<string | null> => {
     try {
-      const payload = currentSteps.map(s => ({ tool:s.tool, label:s.label, args:s.args, category:s.category, reason:s.reason }));
+      const payload = currentSteps.map(s => ({ tool: s.tool, label: s.label, args: s.args, category: s.category, reason: s.reason }));
       const existingId = pipelineIdRef.current;
       if (!existingId && !pipelineCreatedRef.current) {
         pipelineCreatedRef.current = true;
         const res = await fetch("/api/pipelines", {
-          method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ name:pipelineName, sessionId, metadata:{ datasetMeta } })
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: pipelineName, sessionId, metadata: { datasetMeta } })
         });
         const data = await res.json();
         const newId = data.pipeline?.id;
         if (!newId) { pipelineCreatedRef.current = false; return null; }
         await fetch(`/api/pipelines/${newId}`, {
-          method:"PATCH", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ steps:payload, status })
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ steps: payload, status })
         });
         setPipelineId(newId); pipelineIdRef.current = newId; onSaved?.(newId); return newId;
       } else if (existingId) {
         await fetch(`/api/pipelines/${existingId}`, {
-          method:"PATCH", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ name:pipelineName, steps:payload, status })
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: pipelineName, steps: payload, status })
         });
         return existingId;
       }
@@ -877,50 +890,50 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
 
   const handleManualSave = async () => {
     if (!steps.length) return; setSaving(true); setSaveMsg(null);
-    const id = await savePipelineToDb(steps, phase==="done"?"completed":"draft");
-    setSaving(false); setSaveMsg(id?"Saved ✓":"Failed"); setTimeout(()=>setSaveMsg(null),2000);
+    const id = await savePipelineToDb(steps, phase === "done" ? "completed" : "draft");
+    setSaving(false); setSaveMsg(id ? "Saved ✓" : "Failed"); setTimeout(() => setSaveMsg(null), 2000);
   };
 
-  const saveRunHistory = async (pid:string, results:any[]) => {
+  const saveRunHistory = async (pid: string, results: any[]) => {
     try {
       await fetch(`/api/pipelines/${pid}/run`, {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ sessionId, stepResults:results })
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, stepResults: results })
       });
-    } catch {}
+    } catch { }
   };
 
   // ─── CORE: run steps from index ───────────────────────────────────────
-  const runStepsFrom = async (startIdx:number) => {
+  const runStepsFrom = async (startIdx: number) => {
     if (!sessionId) return;
     setPhase("run");
     const snapshot = [...steps];
-    setSteps(prev => prev.map((s,i) => i>=startIdx
-      ? {...s, status:"pending", result:undefined, imageBase64:undefined, errorMsg:undefined, aiSummary:undefined}
+    setSteps(prev => prev.map((s, i) => i >= startIdx
+      ? { ...s, status: "pending", result: undefined, imageBase64: undefined, errorMsg: undefined, aiSummary: undefined }
       : s
     ));
-    const runResults:any[] = [];
+    const runResults: any[] = [];
 
-    for (let i=startIdx; i<snapshot.length; i++) {
-      setSteps(prev => prev.map((s,idx) => idx===i ? {...s, status:"running"} : s));
+    for (let i = startIdx; i < snapshot.length; i++) {
+      setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, status: "running" } : s));
       const step = snapshot[i];
 
       // Build args — inject session_id, skip blank optional args
-      const args:Record<string,any> = { session_id: sessionId };
-      for (const [k,v] of Object.entries(step.args)) {
+      const args: Record<string, any> = { session_id: sessionId };
+      for (const [k, v] of Object.entries(step.args)) {
         if (String(v).trim() !== "") args[k] = v;
       }
 
-      const rfId = addRF({ type:"tool", label:`Backend tool: ${step.label}`, detail:`${step.tool} (${i+1}/${snapshot.length})`, status:"running" });
+      const rfId = addRF({ type: "tool", label: `Backend tool: ${step.label}`, detail: `${step.tool} (${i + 1}/${snapshot.length})`, status: "running" });
       const t0 = Date.now();
 
       try {
         const res = await fetch("/api/agent/tools", {
-          method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ tool_name:step.tool, arguments:args })
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tool_name: step.tool, arguments: args })
         });
         const result = await res.json();
-        const dur = Date.now()-t0;
+        const dur = Date.now() - t0;
 
         // Extract image separately so we can display it
         const img64 = result?.output?.image_base64 || result?.output?.chart_base64;
@@ -935,10 +948,10 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
         updateRF(rfId, {
           status: result.success ? "success" : "error",
           durationMs: dur,
-          detail: result.success ? `Done in ${dur}ms` : `✗ ${errMsg?.slice(0,80)}`
+          detail: result.success ? `Done in ${dur}ms` : `✗ ${errMsg?.slice(0, 80)}`
         });
 
-        setSteps(prev => prev.map((s,idx) => idx===i ? {
+        setSteps(prev => prev.map((s, idx) => idx === i ? {
           ...s,
           status: result.success ? "done" : "error",
           result: clean,
@@ -948,13 +961,13 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
         } : s));
 
         if (result.success) setExpandedResult(step.id);
-        runResults.push({ tool:step.tool, success:result.success, executionMs:result.execution_time_ms, errorMsg:errMsg });
+        runResults.push({ tool: step.tool, success: result.success, executionMs: result.execution_time_ms, errorMsg: errMsg });
         await new Promise(r => setTimeout(r, 200));
 
-      } catch (err:any) {
-        updateRF(rfId, { status:"error", durationMs:Date.now()-t0, detail:err.message });
-        setSteps(prev => prev.map((s,idx) => idx===i ? {...s, status:"error", errorMsg:err.message} : s));
-        runResults.push({ tool:step.tool, success:false, errorMsg:err.message });
+      } catch (err: any) {
+        updateRF(rfId, { status: "error", durationMs: Date.now() - t0, detail: err.message });
+        setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, status: "error", errorMsg: err.message } : s));
+        runResults.push({ tool: step.tool, success: false, errorMsg: err.message });
       }
     }
 
@@ -963,75 +976,77 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
     if (finalId) await saveRunHistory(finalId, runResults);
   };
 
-  const runAll  = async () => { await savePipelineToDb(steps,"running"); await runStepsFrom(0); };
-  const runFrom = async (idx:number) => { await savePipelineToDb(steps,"running"); await runStepsFrom(idx); };
+  const runAll = async () => { await savePipelineToDb(steps, "running"); await runStepsFrom(0); };
+  const runFrom = async (idx: number) => { await savePipelineToDb(steps, "running"); await runStepsFrom(idx); };
   const resetAll = () => {
-    setSteps(prev => prev.map(s => ({...s, status:"pending", result:undefined, imageBase64:undefined, errorMsg:undefined, aiSummary:undefined})));
+    setSteps(prev => prev.map(s => ({ ...s, status: "pending", result: undefined, imageBase64: undefined, errorMsg: undefined, aiSummary: undefined })));
     setPhase("build");
   };
   const getLastResult = () => {
-    const last = [...steps].reverse().find(s => s.status==="done");
-    return last?.result ? JSON.stringify(last.result).slice(0,400) : "";
+    const last = [...steps].reverse().find(s => s.status === "done");
+    return last?.result ? JSON.stringify(last.result).slice(0, 400) : "";
   };
   const downloadReport = () => dlText(
     generateReport(steps, pipelineName, datasetLabel),
-    `${pipelineName.replace(/\s+/g,"_")}_report.txt`
+    `${pipelineName.replace(/\s+/g, "_")}_report.txt`
   );
 
-  const doneCount = steps.filter(s => s.status==="done").length;
-  const errCount  = steps.filter(s => s.status==="error").length;
-  const isRunning = phase==="run";
+  const doneCount = steps.filter(s => s.status === "done").length;
+  const errCount = steps.filter(s => s.status === "error").length;
+  const isRunning = phase === "run";
 
   // ─── Flow toggle button (used in both views) ──────────────────────────
   const FlowBtn = () => (
     <button
       onClick={() => setShowFlows(v => !v)}
-      style={{ padding:"5px 10px", borderRadius:6, cursor:"pointer", fontFamily:C.mono, fontSize:11, flexShrink:0,
-        display:"flex", alignItems:"center", gap:5, transition:"all 0.2s",
-        border:`1px solid ${showFlows ? C.cyan+"55" : recentErrors>0 ? C.red+"44" : activeFlows>0 ? C.amber+"44" : C.border}`,
-        background:showFlows ? `${C.cyan}15` : recentErrors>0 ? `${C.red}08` : activeFlows>0 ? `${C.amber}08` : "transparent",
-        color:showFlows ? C.cyan : recentErrors>0 ? C.red : activeFlows>0 ? C.amber : C.textMute }}
+      style={{
+        padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontFamily: C.mono, fontSize: 11, flexShrink: 0,
+        display: "flex", alignItems: "center", gap: 5, transition: "all 0.2s",
+        border: `1px solid ${showFlows ? C.cyan + "55" : recentErrors > 0 ? C.red + "44" : activeFlows > 0 ? C.amber + "44" : C.border}`,
+        background: showFlows ? `${C.cyan}15` : recentErrors > 0 ? `${C.red}08` : activeFlows > 0 ? `${C.amber}08` : "transparent",
+        color: showFlows ? C.cyan : recentErrors > 0 ? C.red : activeFlows > 0 ? C.amber : C.textMute
+      }}
     >
       📡
-      {activeFlows>0 && <span style={{ width:6, height:6, borderRadius:"50%", background:C.amber, animation:"rfpulse 1.2s ease-in-out infinite" }} />}
-      {flows.length>0 && <span style={{ fontSize:9, padding:"1px 5px", borderRadius:8, background:`${C.cyan}20`, color:C.cyan }}>{flows.length}</span>}
+      {activeFlows > 0 && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.amber, animation: "rfpulse 1.2s ease-in-out infinite" }} />}
+      {flows.length > 0 && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 8, background: `${C.cyan}20`, color: C.cyan }}>{flows.length}</span>}
     </button>
   );
 
   // ─── UPLOAD PHASE ─────────────────────────────────────────────────────
   if (phase === "upload") {
     return (
-      <div style={{ display:"flex", height:"100%", overflow:"hidden" }}>
-        <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, overflow:"hidden" }}>
-          <div style={{ padding:"8px 14px", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"flex-end", flexShrink:0, background:C.card }}>
+      <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+          <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", flexShrink: 0, background: C.card }}>
             <FlowBtn />
           </div>
-          <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:24, padding:24 }}>
-            <div style={{ textAlign:"center" }}>
-              <h2 style={{ fontFamily:C.head, fontSize:"1.4rem", fontWeight:700, color:C.text, marginBottom:8 }}>Build a Pipeline</h2>
-              <p style={{ fontSize:12.5, color:C.textSub, maxWidth:420, lineHeight:1.65 }}>Upload a CSV — DSAgent suggests cleaning, analysis, and modelling steps.</p>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
+            <div style={{ textAlign: "center" }}>
+              <h2 style={{ fontFamily: C.head, fontSize: "1.4rem", fontWeight: 700, color: C.text, marginBottom: 8 }}>Build a Pipeline</h2>
+              <p style={{ fontSize: 12.5, color: C.textSub, maxWidth: 420, lineHeight: 1.65 }}>Upload a CSV — DSAgent suggests cleaning, analysis, and modelling steps.</p>
             </div>
             <div
               onDragOver={e => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
-              onDrop={e => { e.preventDefault(); setDragOver(false); const f=e.dataTransfer.files[0]; if(f) handleUpload(f); }}
+              onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleUpload(f); }}
               onClick={() => fileRef.current?.click()}
-              style={{ width:"100%", maxWidth:460, border:`2px dashed ${dragOver?C.cyan:C.borderMd}`, borderRadius:18, padding:"52px 32px", textAlign:"center", cursor:uploading?"default":"pointer", background:dragOver?`${C.cyan}06`:C.card, transition:"all 0.2s" }}
+              style={{ width: "100%", maxWidth: 460, border: `2px dashed ${dragOver ? C.cyan : C.borderMd}`, borderRadius: 18, padding: "52px 32px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: dragOver ? `${C.cyan}06` : C.card, transition: "all 0.2s" }}
             >
               {uploading
-                ? <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}><div style={{ width:34, height:34, border:`3px solid ${C.cyan}`, borderTopColor:"transparent", borderRadius:"50%", animation:"rfspin 0.8s linear infinite" }} /><span style={{ fontSize:13, color:C.textSub }}>Uploading…</span></div>
-                : <><div style={{ fontSize:36, marginBottom:12 }}>📂</div><div style={{ fontSize:14, fontWeight:600, color:C.cyan, marginBottom:6 }}>Drop your CSV here</div><div style={{ fontSize:11, color:C.textMute }}>or click to browse</div></>
+                ? <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}><div style={{ width: 34, height: 34, border: `3px solid ${C.cyan}`, borderTopColor: "transparent", borderRadius: "50%", animation: "rfspin 0.8s linear infinite" }} /><span style={{ fontSize: 13, color: C.textSub }}>Uploading…</span></div>
+                : <><div style={{ fontSize: 36, marginBottom: 12 }}>📂</div><div style={{ fontSize: 14, fontWeight: 600, color: C.cyan, marginBottom: 6 }}>Drop your CSV here</div><div style={{ fontSize: 11, color: C.textMute }}>or click to browse</div></>
               }
             </div>
-            <input ref={fileRef} type="file" accept=".csv" style={{ display:"none" }} onChange={e => { const f=e.target.files?.[0]; if(f) handleUpload(f); e.target.value=""; }} />
-            <button onClick={() => { setDatasetMeta(""); setDatasetLabel("Template"); setPipelineName("New Pipeline"); setPhase("build"); setShowTemplates(true); }} style={{ padding:"9px 22px", borderRadius:9, border:`1px solid ${C.borderMd}`, background:"transparent", color:C.text, fontSize:12, fontWeight:600, fontFamily:C.head, cursor:"pointer" }}>📋 Browse Templates →</button>
-            <AnimatePresence>{showTemplates && <TemplateModal onSelect={loadTemplate} onClose={()=>setShowTemplates(false)} />}</AnimatePresence>
+            <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
+            <button onClick={() => { setDatasetMeta(""); setDatasetLabel("Template"); setPipelineName("New Pipeline"); setPhase("build"); setShowTemplates(true); }} style={{ padding: "9px 22px", borderRadius: 9, border: `1px solid ${C.borderMd}`, background: "transparent", color: C.text, fontSize: 12, fontWeight: 600, fontFamily: C.head, cursor: "pointer" }}>📋 Browse Templates →</button>
+            <AnimatePresence>{showTemplates && <TemplateModal onSelect={loadTemplate} onClose={() => setShowTemplates(false)} />}</AnimatePresence>
           </div>
         </div>
         <AnimatePresence>
           {showFlows && (
-            <motion.div initial={{ width:0 }} animate={{ width:300 }} exit={{ width:0 }} transition={{ type:"spring", stiffness:340, damping:34 }} style={{ flexShrink:0, overflow:"hidden", height:"100%", borderLeft:`1px solid ${C.border}` }}>
-              <div style={{ width:300, height:"100%" }}><RequestFlowPanel onClose={()=>setShowFlows(false)} /></div>
+            <motion.div initial={{ width: 0 }} animate={{ width: 300 }} exit={{ width: 0 }} transition={{ type: "spring", stiffness: 340, damping: 34 }} style={{ flexShrink: 0, overflow: "hidden", height: "100%", borderLeft: `1px solid ${C.border}` }}>
+              <div style={{ width: 300, height: "100%" }}><RequestFlowPanel onClose={() => setShowFlows(false)} /></div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1042,176 +1057,178 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
 
   // ─── BUILD / RUN / DONE PHASE ─────────────────────────────────────────
   return (
-    <div style={{ display:"flex", height:"100%", overflow:"hidden" }}>
-      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
+    <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
 
         {/* ── Toolbar ── */}
-        <div style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 14px", background:C.card, borderBottom:`1px solid ${C.border}`, flexShrink:0, flexWrap:"wrap" as const }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", background: C.card, borderBottom: `1px solid ${C.border}`, flexShrink: 0, flexWrap: "wrap" as const }}>
           {/* Pipeline name */}
-          <div style={{ display:"flex", alignItems:"center", gap:5, flex:1, minWidth:100 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flex: 1, minWidth: 100 }}>
             {renamingPipeline
-              ? <input ref={renameRef} value={pipelineName} onChange={e=>setPipelineName(e.target.value)}
-                  onBlur={() => { if(!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); }}
-                  onKeyDown={e => { if(e.key==="Enter"||e.key==="Escape"){ if(!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); }}}
-                  style={{ background:C.input, border:`1px solid ${C.cyan}55`, borderRadius:6, outline:"none", color:C.text, fontFamily:C.head, fontSize:13, fontWeight:600, padding:"3px 8px", flex:1, minWidth:80, maxWidth:220, boxShadow:`0 0 0 2px ${C.cyan}20` }}
-                />
-              : <span onDoubleClick={()=>setRenamingPipeline(true)} title="Double-click to rename" style={{ color:C.text, fontFamily:C.head, fontSize:13, fontWeight:600, cursor:"text", whiteSpace:"nowrap" as const, overflow:"hidden", textOverflow:"ellipsis", maxWidth:200 }}>{pipelineName}</span>
+              ? <input ref={renameRef} value={pipelineName} onChange={e => setPipelineName(e.target.value)}
+                onBlur={() => { if (!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); }}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") { if (!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); } }}
+                style={{ background: C.input, border: `1px solid ${C.cyan}55`, borderRadius: 6, outline: "none", color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, padding: "3px 8px", flex: 1, minWidth: 80, maxWidth: 220, boxShadow: `0 0 0 2px ${C.cyan}20` }}
+              />
+              : <span onDoubleClick={() => setRenamingPipeline(true)} title="Double-click to rename" style={{ color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, cursor: "text", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>{pipelineName}</span>
             }
-            <button onClick={()=>setRenamingPipeline(v=>!v)} title="Rename" style={{ background:"none", border:"none", cursor:"pointer", color:renamingPipeline?C.cyan:C.textMute, fontSize:11, padding:"2px 4px", borderRadius:4, flexShrink:0 }} onMouseEnter={e=>(e.currentTarget.style.color=C.cyan)} onMouseLeave={e=>(e.currentTarget.style.color=renamingPipeline?C.cyan:C.textMute)}>✏️</button>
+            <button onClick={() => setRenamingPipeline(v => !v)} title="Rename" style={{ background: "none", border: "none", cursor: "pointer", color: renamingPipeline ? C.cyan : C.textMute, fontSize: 11, padding: "2px 4px", borderRadius: 4, flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = C.cyan)} onMouseLeave={e => (e.currentTarget.style.color = renamingPipeline ? C.cyan : C.textMute)}>✏️</button>
           </div>
 
           {/* Dataset pill */}
           {datasetLabel
-            ? <span style={{ fontSize:10, padding:"3px 8px", borderRadius:5, background:`${C.cyan}15`, color:C.cyan, border:`1px solid ${C.cyan}30`, fontFamily:C.mono, flexShrink:0 }}>{datasetLabel}</span>
-            : <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{ fontSize:10, padding:"4px 10px", borderRadius:5, background:`${C.amber}12`, color:C.amber, border:`1px solid ${C.amber}30`, fontFamily:C.mono, cursor:"pointer", flexShrink:0 }}>{uploading?"⏳…":"📂 Upload CSV"}</button>
+            ? <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: `${C.cyan}15`, color: C.cyan, border: `1px solid ${C.cyan}30`, fontFamily: C.mono, flexShrink: 0 }}>{datasetLabel}</span>
+            : <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 5, background: `${C.amber}12`, color: C.amber, border: `1px solid ${C.amber}30`, fontFamily: C.mono, cursor: "pointer", flexShrink: 0 }}>{uploading ? "⏳…" : "📂 Upload CSV"}</button>
           }
-          <input ref={fileRef} type="file" accept=".csv" style={{ display:"none" }} onChange={e=>{ const f=e.target.files?.[0]; if(f) handleUpload(f); e.target.value=""; }} />
+          <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
 
           {/* Status pill */}
-          <span style={{ fontSize:10, padding:"3px 8px", borderRadius:5, fontFamily:C.mono, fontWeight:600, flexShrink:0,
-            background:phase==="done"?`${C.green}20`:isRunning?`${C.amber}20`:`${C.violet}15`,
-            color:phase==="done"?C.green:isRunning?C.amber:C.violet,
-            border:`1px solid ${phase==="done"?C.green+"40":isRunning?C.amber+"40":C.violet+"30"}` }}>
-            {phase==="done" ? `✓ ${doneCount}/${steps.length}` : isRunning ? `Running… ${doneCount}/${steps.length}` : `${steps.length} steps`}
+          <span style={{
+            fontSize: 10, padding: "3px 8px", borderRadius: 5, fontFamily: C.mono, fontWeight: 600, flexShrink: 0,
+            background: phase === "done" ? `${C.green}20` : isRunning ? `${C.amber}20` : `${C.violet}15`,
+            color: phase === "done" ? C.green : isRunning ? C.amber : C.violet,
+            border: `1px solid ${phase === "done" ? C.green + "40" : isRunning ? C.amber + "40" : C.violet + "30"}`
+          }}>
+            {phase === "done" ? `✓ ${doneCount}/${steps.length}` : isRunning ? `Running… ${doneCount}/${steps.length}` : `${steps.length} steps`}
           </span>
 
-          {!isRunning && <button onClick={()=>setShowTemplates(true)} style={{ padding:"5px 10px", borderRadius:6, border:`1px solid ${C.border}`, background:"transparent", color:C.textSub, fontSize:11, fontFamily:C.sans, cursor:"pointer", flexShrink:0 }}>📋 Templates</button>}
-          {sessionId && <button onClick={()=>setShowDownloadCSV(true)} style={{ padding:"5px 10px", borderRadius:6, border:`1px solid ${C.teal}44`, background:`${C.teal}10`, color:C.teal, fontSize:11, fontFamily:C.sans, cursor:"pointer", flexShrink:0, fontWeight:600 }}>⬇ CSV</button>}
-          {phase==="done" && <button onClick={downloadReport} style={{ padding:"5px 10px", borderRadius:6, border:`1px solid ${C.violet}33`, background:`${C.violet}10`, color:C.violet, fontSize:11, cursor:"pointer", flexShrink:0 }}>📄 Report</button>}
-          {phase==="done" && <button onClick={()=>setShowExport(true)} style={{ padding:"5px 10px", borderRadius:6, border:`1px solid ${C.green}33`, background:`${C.green}10`, color:C.green, fontSize:11, cursor:"pointer", flexShrink:0 }}>↓ Export</button>}
-          <button onClick={handleManualSave} disabled={saving||!steps.length} style={{ padding:"5px 10px", borderRadius:6, border:`1px solid ${C.borderMd}`, background:saveMsg==="Saved ✓"?`${C.green}20`:"transparent", color:saveMsg==="Saved ✓"?C.green:C.textSub, fontSize:11, cursor:!steps.length?"not-allowed":"pointer", opacity:!steps.length?0.4:1, flexShrink:0, fontFamily:C.sans }}>
-            {saving?"…":saveMsg||"💾 Save"}
+          {!isRunning && <button onClick={() => setShowTemplates(true)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.textSub, fontSize: 11, fontFamily: C.sans, cursor: "pointer", flexShrink: 0 }}>📋 Templates</button>}
+          {sessionId && <button onClick={() => setShowDownloadCSV(true)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.teal}44`, background: `${C.teal}10`, color: C.teal, fontSize: 11, fontFamily: C.sans, cursor: "pointer", flexShrink: 0, fontWeight: 600 }}>⬇ CSV</button>}
+          {phase === "done" && <button onClick={downloadReport} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.violet}33`, background: `${C.violet}10`, color: C.violet, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>📄 Report</button>}
+          {phase === "done" && <button onClick={() => setShowExport(true)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.green}33`, background: `${C.green}10`, color: C.green, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>↓ Export</button>}
+          <button onClick={handleManualSave} disabled={saving || !steps.length} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.borderMd}`, background: saveMsg === "Saved ✓" ? `${C.green}20` : "transparent", color: saveMsg === "Saved ✓" ? C.green : C.textSub, fontSize: 11, cursor: !steps.length ? "not-allowed" : "pointer", opacity: !steps.length ? 0.4 : 1, flexShrink: 0, fontFamily: C.sans }}>
+            {saving ? "…" : saveMsg || "💾 Save"}
           </button>
-          {!isRunning && <button onClick={runAll} disabled={!steps.length||!sessionId} style={{ padding:"6px 16px", borderRadius:7, border:"none", background:(!steps.length||!sessionId)?C.border:`linear-gradient(135deg,${C.cyan},#0099CC)`, color:(!steps.length||!sessionId)?C.textMute:"#030712", fontSize:11, fontWeight:700, fontFamily:C.head, cursor:(!steps.length||!sessionId)?"not-allowed":"pointer", flexShrink:0 }}>
-            {!sessionId?"⚠ Upload CSV first":"▶ Run All"}
+          {!isRunning && <button onClick={runAll} disabled={!steps.length || !sessionId} style={{ padding: "6px 16px", borderRadius: 7, border: "none", background: (!steps.length || !sessionId) ? C.border : `linear-gradient(135deg,${C.cyan},#0099CC)`, color: (!steps.length || !sessionId) ? C.textMute : "#030712", fontSize: 11, fontWeight: 700, fontFamily: C.head, cursor: (!steps.length || !sessionId) ? "not-allowed" : "pointer", flexShrink: 0 }}>
+            {!sessionId ? "⚠ Upload CSV first" : "▶ Run All"}
           </button>}
-          {(phase==="done"||isRunning) && <button onClick={resetAll} disabled={isRunning} style={{ padding:"6px 12px", borderRadius:7, border:`1px solid ${C.borderMd}`, background:"transparent", color:C.text, fontSize:11, fontWeight:600, fontFamily:C.head, cursor:isRunning?"not-allowed":"pointer", opacity:isRunning?0.5:1, flexShrink:0 }}>↺ Reset</button>}
+          {(phase === "done" || isRunning) && <button onClick={resetAll} disabled={isRunning} style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.borderMd}`, background: "transparent", color: C.text, fontSize: 11, fontWeight: 600, fontFamily: C.head, cursor: isRunning ? "not-allowed" : "pointer", opacity: isRunning ? 0.5 : 1, flexShrink: 0 }}>↺ Reset</button>}
           <FlowBtn />
         </div>
 
         {/* ── Body (steps + right panel) ── */}
-        <div style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0 }}>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
 
           {/* Steps column */}
-          <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
             {/* Warning banner when editing without session */}
             {isEditing && !sessionId && (
-              <div style={{ margin:"8px 14px 0", padding:"10px 14px", background:`${C.amber}0D`, borderRadius:9, border:`1px solid ${C.amber}33`, flexShrink:0, display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ margin: "8px 14px 0", padding: "10px 14px", background: `${C.amber}0D`, borderRadius: 9, border: `1px solid ${C.amber}33`, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
                 <span>⚠️</span>
-                <div style={{ flex:1 }}><div style={{ fontSize:11, fontWeight:600, color:C.amber }}>Dataset not loaded</div><div style={{ fontSize:10, color:C.textSub, fontFamily:C.mono }}>Upload the CSV again to run steps.</div></div>
-                <button onClick={()=>fileRef.current?.click()} style={{ padding:"5px 12px", borderRadius:6, border:`1px solid ${C.amber}44`, background:`${C.amber}15`, color:C.amber, fontSize:10, fontFamily:C.mono, cursor:"pointer" }}>Upload CSV →</button>
+                <div style={{ flex: 1 }}><div style={{ fontSize: 11, fontWeight: 600, color: C.amber }}>Dataset not loaded</div><div style={{ fontSize: 10, color: C.textSub, fontFamily: C.mono }}>Upload the CSV again to run steps.</div></div>
+                <button onClick={() => fileRef.current?.click()} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${C.amber}44`, background: `${C.amber}15`, color: C.amber, fontSize: 10, fontFamily: C.mono, cursor: "pointer" }}>Upload CSV →</button>
               </div>
             )}
 
             {/* Progress bar while running */}
             {isRunning && (
-              <div style={{ margin:"8px 14px 0", padding:"8px 14px", background:C.card, borderRadius:8, border:`1px solid ${C.border}`, flexShrink:0 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5, fontSize:10, color:C.textSub, fontFamily:C.mono }}>
-                  <span>Running pipeline…</span><span>{doneCount+errCount}/{steps.length}</span>
+              <div style={{ margin: "8px 14px 0", padding: "8px 14px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 10, color: C.textSub, fontFamily: C.mono }}>
+                  <span>Running pipeline…</span><span>{doneCount + errCount}/{steps.length}</span>
                 </div>
-                <div style={{ height:3, background:C.border, borderRadius:2, overflow:"hidden" }}>
-                  <motion.div style={{ height:"100%", background:`linear-gradient(90deg,${C.cyan},${C.violet})`, borderRadius:2 }} animate={{ width:`${((doneCount+errCount)/steps.length)*100}%` }} transition={{ duration:0.4 }} />
+                <div style={{ height: 3, background: C.border, borderRadius: 2, overflow: "hidden" }}>
+                  <motion.div style={{ height: "100%", background: `linear-gradient(90deg,${C.cyan},${C.violet})`, borderRadius: 2 }} animate={{ width: `${((doneCount + errCount) / steps.length) * 100}%` }} transition={{ duration: 0.4 }} />
                 </div>
               </div>
             )}
 
             {/* Done banner */}
-            {phase==="done" && (
-              <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }} style={{ margin:"8px 14px 0", padding:"10px 14px", background:`${C.green}0A`, borderRadius:9, border:`1px solid ${C.green}28`, flexShrink:0, display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" as const }}>
+            {phase === "done" && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} style={{ margin: "8px 14px 0", padding: "10px 14px", background: `${C.green}0A`, borderRadius: 9, border: `1px solid ${C.green}28`, flexShrink: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
                 <span>✅</span>
-                <span style={{ fontSize:12, fontWeight:600, color:C.green, fontFamily:C.head }}>Pipeline complete!</span>
-                <span style={{ fontSize:10, color:C.textSub, fontFamily:C.mono }}>{doneCount} ok · {errCount} failed</span>
-                <span style={{ flex:1 }} />
-                {sessionId && <button onClick={()=>setShowDownloadCSV(true)} style={{ padding:"4px 12px", borderRadius:5, border:`1px solid ${C.teal}55`, background:`${C.teal}15`, color:C.teal, fontSize:10, fontFamily:C.mono, cursor:"pointer", fontWeight:600 }}>⬇ Modified CSV</button>}
-                <button onClick={downloadReport} style={{ padding:"4px 10px", borderRadius:5, border:`1px solid ${C.violet}44`, background:`${C.violet}12`, color:C.violet, fontSize:10, fontFamily:C.mono, cursor:"pointer" }}>📄 Report</button>
-                <button onClick={()=>fetchSuggestions(steps,datasetMeta,getLastResult())} style={{ padding:"4px 10px", borderRadius:5, border:`1px solid ${C.cyan}33`, background:`${C.cyan}10`, color:C.cyan, fontSize:10, fontFamily:C.mono, cursor:"pointer" }}>Get next steps →</button>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.green, fontFamily: C.head }}>Pipeline complete!</span>
+                <span style={{ fontSize: 10, color: C.textSub, fontFamily: C.mono }}>{doneCount} ok · {errCount} failed</span>
+                <span style={{ flex: 1 }} />
+                {sessionId && <button onClick={() => setShowDownloadCSV(true)} style={{ padding: "4px 12px", borderRadius: 5, border: `1px solid ${C.teal}55`, background: `${C.teal}15`, color: C.teal, fontSize: 10, fontFamily: C.mono, cursor: "pointer", fontWeight: 600 }}>⬇ Modified CSV</button>}
+                <button onClick={downloadReport} style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${C.violet}44`, background: `${C.violet}12`, color: C.violet, fontSize: 10, fontFamily: C.mono, cursor: "pointer" }}>📄 Report</button>
+                <button onClick={() => fetchSuggestions(steps, datasetMeta, getLastResult())} style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${C.cyan}33`, background: `${C.cyan}10`, color: C.cyan, fontSize: 10, fontFamily: C.mono, cursor: "pointer" }}>Get next steps →</button>
               </motion.div>
             )}
 
             {/* Steps scroll area */}
-            <div style={{ flex:1, minHeight:0, overflowY:"auto" as const, padding:"10px 14px", scrollbarWidth:"thin" as const, scrollbarColor:`${C.border} transparent` }}>
-              {steps.length===0 ? (
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:C.textMute, fontSize:12, gap:10, minHeight:200 }}>
-                  <div style={{ fontSize:32 }}>⚡</div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto" as const, padding: "10px 14px", scrollbarWidth: "thin" as const, scrollbarColor: `${C.border} transparent` }}>
+              {steps.length === 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.textMute, fontSize: 12, gap: 10, minHeight: 200 }}>
+                  <div style={{ fontSize: 32 }}>⚡</div>
                   <div>Add steps from the AI suggestions panel →</div>
-                  <button onClick={()=>setShowTemplates(true)} style={{ padding:"7px 16px", borderRadius:8, border:`1px solid ${C.borderMd}`, background:"transparent", color:C.textSub, fontSize:11, cursor:"pointer", fontFamily:C.sans }}>or load a template</button>
+                  <button onClick={() => setShowTemplates(true)} style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${C.borderMd}`, background: "transparent", color: C.textSub, fontSize: 11, cursor: "pointer", fontFamily: C.sans }}>or load a template</button>
                 </div>
               ) : (
-                <Reorder.Group axis="y" values={steps} onReorder={newOrder => { if(!isRunning) setSteps(newOrder); }} style={{ display:"flex", flexDirection:"column", gap:8, listStyle:"none", padding:0, margin:0 }} as="div">
+                <Reorder.Group axis="y" values={steps} onReorder={newOrder => { if (!isRunning) setSteps(newOrder); }} style={{ display: "flex", flexDirection: "column", gap: 8, listStyle: "none", padding: 0, margin: 0 }} as="div">
                   <AnimatePresence>
                     {steps.map((step, idx) => (
                       <StepCard key={step.id} step={step} idx={idx} phase={phase} isRunning={isRunning}
-                        expanded={expandedResult===step.id}
-                        onToggleExpand={() => setExpandedResult(expandedResult===step.id ? null : step.id)}
+                        expanded={expandedResult === step.id}
+                        onToggleExpand={() => setExpandedResult(expandedResult === step.id ? null : step.id)}
                         onRemove={() => removeStep(step.id)}
-                        onUpdateArg={(k,v) => updateArg(step.id,k,v)}
+                        onUpdateArg={(k, v) => updateArg(step.id, k, v)}
                         onRunFrom={() => runFrom(idx)}
                         onGenerateSummary={() => generateSummary(step.id)}
                         datasetCols={datasetCols}
                       />
                     ))}
                   </AnimatePresence>
-                  <div ref={stepsEndRef} style={{ height:1 }} />
+                  <div ref={stepsEndRef} style={{ height: 1 }} />
                 </Reorder.Group>
               )}
             </div>
           </div>
 
           {/* Right panel: AI suggestions + Advanced tools */}
-          <div style={{ width:282, flexShrink:0, display:"flex", flexDirection:"column", borderLeft:`1px solid ${C.border}`, overflow:"hidden" }}>
+          <div style={{ width: 282, flexShrink: 0, display: "flex", flexDirection: "column", borderLeft: `1px solid ${C.border}`, overflow: "hidden" }}>
             {/* Tab bar */}
-            <div style={{ display:"flex", background:C.card, borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-              {(["ai","advanced"] as const).map(tab => (
-                <button key={tab} onClick={()=>setRightTab(tab)} style={{ flex:1, padding:"10px 6px", background:rightTab===tab?`${C.cyan}12`:"transparent", border:"none", borderBottom:rightTab===tab?`2px solid ${C.cyan}`:"2px solid transparent", color:rightTab===tab?C.cyan:C.textMute, fontSize:10, fontFamily:C.mono, fontWeight:600, cursor:"pointer", letterSpacing:"0.04em" }}>
-                  {tab==="ai"?"🤖 AI Suggestions":"⚙️ Advanced"}
+            <div style={{ display: "flex", background: C.card, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              {(["ai", "advanced"] as const).map(tab => (
+                <button key={tab} onClick={() => setRightTab(tab)} style={{ flex: 1, padding: "10px 6px", background: rightTab === tab ? `${C.cyan}12` : "transparent", border: "none", borderBottom: rightTab === tab ? `2px solid ${C.cyan}` : "2px solid transparent", color: rightTab === tab ? C.cyan : C.textMute, fontSize: 10, fontFamily: C.mono, fontWeight: 600, cursor: "pointer", letterSpacing: "0.04em" }}>
+                  {tab === "ai" ? "🤖 AI Suggestions" : "⚙️ Advanced"}
                 </button>
               ))}
             </div>
 
             {/* AI tab */}
-            {rightTab==="ai" && (
+            {rightTab === "ai" && (
               <>
-                <div style={{ padding:"8px 10px", background:C.card, borderBottom:`1px solid ${C.border}`, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                  <span style={{ fontSize:10, color:C.textMute }}>LLM-powered suggestions</span>
-                  <button onClick={()=>fetchSuggestions(steps,datasetMeta,getLastResult())} disabled={loadingSuggest} style={{ background:"none", border:`1px solid ${C.borderMd}`, borderRadius:5, padding:"3px 8px", color:C.cyan, fontSize:10, fontFamily:C.mono, cursor:"pointer", opacity:loadingSuggest?0.5:1 }}>{loadingSuggest?"…":"↻ Refresh"}</button>
+                <div style={{ padding: "8px 10px", background: C.card, borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 10, color: C.textMute }}>LLM-powered suggestions</span>
+                  <button onClick={() => fetchSuggestions(steps, datasetMeta, getLastResult())} disabled={loadingSuggest} style={{ background: "none", border: `1px solid ${C.borderMd}`, borderRadius: 5, padding: "3px 8px", color: C.cyan, fontSize: 10, fontFamily: C.mono, cursor: "pointer", opacity: loadingSuggest ? 0.5 : 1 }}>{loadingSuggest ? "…" : "↻ Refresh"}</button>
                 </div>
-                <div style={{ flex:1, minHeight:0, overflowY:"auto" as const, padding:"8px", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"thin" as const }}>
-                  {loadingSuggest && [1,2,3].map(i => <div key={i} style={{ height:76, borderRadius:10, background:C.card, border:`1px solid ${C.border}`, opacity:0.3+i*0.1 }} />)}
-                  {!loadingSuggest && !suggestions.length && <div style={{ padding:14, textAlign:"center", color:C.textMute, fontSize:11, background:C.card, borderRadius:10, border:`1px solid ${C.border}` }}>{phase==="done"?"✓ Done. Click ↻ for more.":"Click ↻ to get AI suggestions."}</div>}
-                  <AnimatePresence>{suggestions.map((s,i) => <SuggestionCard key={s.tool+i} suggestion={s} onAdd={()=>addStep(s)} disabled={isRunning} />)}</AnimatePresence>
+                <div style={{ flex: 1, minHeight: 0, overflowY: "auto" as const, padding: "8px", display: "flex", flexDirection: "column", gap: 6, scrollbarWidth: "thin" as const }}>
+                  {loadingSuggest && [1, 2, 3].map(i => <div key={i} style={{ height: 76, borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, opacity: 0.3 + i * 0.1 }} />)}
+                  {!loadingSuggest && !suggestions.length && <div style={{ padding: 14, textAlign: "center", color: C.textMute, fontSize: 11, background: C.card, borderRadius: 10, border: `1px solid ${C.border}` }}>{phase === "done" ? "✓ Done. Click ↻ for more." : "Click ↻ to get AI suggestions."}</div>}
+                  <AnimatePresence>{suggestions.map((s, i) => <SuggestionCard key={s.tool + i} suggestion={s} onAdd={() => addStep(s)} disabled={isRunning} />)}</AnimatePresence>
                 </div>
               </>
             )}
 
             {/* Advanced tools tab */}
-            {rightTab==="advanced" && (
-              <div style={{ flex:1, minHeight:0, overflowY:"auto" as const, padding:"8px", display:"flex", flexDirection:"column", gap:5, scrollbarWidth:"thin" as const }}>
-                {(["preprocessing","cleaning","modeling"] as const).map(cat => {
-                  const tools = Object.entries(ADVANCED_TOOLS).filter(([,t]) => t.category===cat);
+            {rightTab === "advanced" && (
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto" as const, padding: "8px", display: "flex", flexDirection: "column", gap: 5, scrollbarWidth: "thin" as const }}>
+                {(["preprocessing", "cleaning", "modeling"] as const).map(cat => {
+                  const tools = Object.entries(ADVANCED_TOOLS).filter(([, t]) => t.category === cat);
                   if (!tools.length) return null;
-                  const catColor = CAT_COLOR[cat]||C.textSub;
+                  const catColor = CAT_COLOR[cat] || C.textSub;
                   return (
                     <div key={cat}>
-                      <div style={{ fontSize:9, fontWeight:700, color:catColor, fontFamily:C.mono, letterSpacing:"0.09em", textTransform:"uppercase" as const, padding:"6px 2px 4px", display:"flex", alignItems:"center", gap:5 }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: catColor, fontFamily: C.mono, letterSpacing: "0.09em", textTransform: "uppercase" as const, padding: "6px 2px 4px", display: "flex", alignItems: "center", gap: 5 }}>
                         <span>{CAT_ICON[cat]}</span> {cat}
                       </div>
                       {tools.map(([toolKey, tool]) => {
-                        const alreadyAdded = steps.some(s => s.tool===toolKey);
+                        const alreadyAdded = steps.some(s => s.tool === toolKey);
                         return (
-                          <motion.div key={toolKey} initial={{ opacity:0 }} animate={{ opacity:1 }}
-                            onClick={() => !isRunning && !alreadyAdded && addStep({ tool:toolKey, label:tool.label, args:{...tool.args}, reason:tool.reason, category:tool.category })}
-                            style={{ padding:"9px 11px", borderRadius:8, background:alreadyAdded?`${catColor}0A`:C.card, border:`1px solid ${alreadyAdded?catColor+"30":C.border}`, cursor:isRunning||alreadyAdded?"default":"pointer", opacity:alreadyAdded?0.6:1, marginBottom:3 }}
-                            whileHover={!isRunning&&!alreadyAdded?{ borderColor:catColor+"66", backgroundColor:`${catColor}0D` }:{}}
+                          <motion.div key={toolKey} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                            onClick={() => !isRunning && !alreadyAdded && addStep({ tool: toolKey, label: tool.label, args: { ...tool.args }, reason: tool.reason, category: tool.category })}
+                            style={{ padding: "9px 11px", borderRadius: 8, background: alreadyAdded ? `${catColor}0A` : C.card, border: `1px solid ${alreadyAdded ? catColor + "30" : C.border}`, cursor: isRunning || alreadyAdded ? "default" : "pointer", opacity: alreadyAdded ? 0.6 : 1, marginBottom: 3 }}
+                            whileHover={!isRunning && !alreadyAdded ? { borderColor: catColor + "66", backgroundColor: `${catColor}0D` } : {}}
                           >
-                            <div style={{ display:"flex", alignItems:"flex-start", gap:7 }}>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:11, fontWeight:600, color:alreadyAdded?catColor:C.text, fontFamily:C.head, marginBottom:2, display:"flex", alignItems:"center", gap:5 }}>
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: alreadyAdded ? catColor : C.text, fontFamily: C.head, marginBottom: 2, display: "flex", alignItems: "center", gap: 5 }}>
                                   {tool.label}
-                                  {alreadyAdded && <span style={{ fontSize:8, color:catColor, fontFamily:C.mono }}>✓ added</span>}
+                                  {alreadyAdded && <span style={{ fontSize: 8, color: catColor, fontFamily: C.mono }}>✓ added</span>}
                                 </div>
-                                <div style={{ fontSize:9.5, color:C.textMute, lineHeight:1.5 }}>{tool.reason.split(".")[0]}.</div>
+                                <div style={{ fontSize: 9.5, color: C.textMute, lineHeight: 1.5 }}>{tool.reason.split(".")[0]}.</div>
                               </div>
-                              {!alreadyAdded && !isRunning && <span style={{ fontSize:14, color:catColor, opacity:0.5 }}>+</span>}
+                              {!alreadyAdded && !isRunning && <span style={{ fontSize: 14, color: catColor, opacity: 0.5 }}>+</span>}
                             </div>
                           </motion.div>
                         );
@@ -1230,9 +1247,9 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
       {/* Request Flow slide-in panel */}
       <AnimatePresence>
         {showFlows && (
-          <motion.div key="flow-panel" initial={{ width:0 }} animate={{ width:300 }} exit={{ width:0 }} transition={{ type:"spring", stiffness:340, damping:34 }} style={{ flexShrink:0, overflow:"hidden", height:"100%", borderLeft:`1px solid ${C.border}` }}>
-            <div style={{ width:300, height:"100%" }}>
-              <RequestFlowPanel onClose={()=>setShowFlows(false)} />
+          <motion.div key="flow-panel" initial={{ width: 0 }} animate={{ width: 300 }} exit={{ width: 0 }} transition={{ type: "spring", stiffness: 340, damping: 34 }} style={{ flexShrink: 0, overflow: "hidden", height: "100%", borderLeft: `1px solid ${C.border}` }}>
+            <div style={{ width: 300, height: "100%" }}>
+              <RequestFlowPanel onClose={() => setShowFlows(false)} />
             </div>
           </motion.div>
         )}
@@ -1240,9 +1257,9 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
 
       {/* Modals */}
       <AnimatePresence>
-        {showExport && <ExportModal steps={steps} pipelineName={pipelineName} datasetLabel={datasetLabel} onClose={()=>setShowExport(false)} />}
-        {showTemplates && <TemplateModal onSelect={loadTemplate} onClose={()=>setShowTemplates(false)} />}
-        {showDownloadCSV && sessionId && <DownloadCSVModal sessionId={sessionId} defaultName={datasetLabel||pipelineName} onClose={()=>setShowDownloadCSV(false)} />}
+        {showExport && <ExportModal steps={steps} pipelineName={pipelineName} datasetLabel={datasetLabel} onClose={() => setShowExport(false)} />}
+        {showTemplates && <TemplateModal onSelect={loadTemplate} onClose={() => setShowTemplates(false)} />}
+        {showDownloadCSV && sessionId && <DownloadCSVModal sessionId={sessionId} defaultName={datasetLabel || pipelineName} onClose={() => setShowDownloadCSV(false)} />}
       </AnimatePresence>
 
       <style>{`
