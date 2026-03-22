@@ -29,6 +29,28 @@ function dlText(content: string, filename: string) {
 
   URL.revokeObjectURL(url);
 }
+function generateReport(steps: PipelineStep[], pipelineName: string, datasetLabel: string): string {
+  const lines: string[] = [
+    `Pipeline Report: ${pipelineName}`,
+    `Dataset: ${datasetLabel}`,
+    `Generated: ${new Date().toLocaleString()}`,
+    `Total Steps: ${steps.length}`,
+    ``,
+    `─────────────────────────────────────────`,
+    `STEPS`,
+    `─────────────────────────────────────────`,
+  ];
+  steps.forEach((s, i) => {
+    lines.push(`${i + 1}. [${s.status.toUpperCase()}] ${s.label} (${s.tool})`);
+    lines.push(`   Category: ${s.category}`);
+    lines.push(`   Reason: ${s.reason}`);
+    if (s.executionMs != null) lines.push(`   Execution: ${s.executionMs}ms`);
+    if (s.errorMsg) lines.push(`   Error: ${s.errorMsg}`);
+    if (s.aiSummary) lines.push(`   AI Insight: ${s.aiSummary}`);
+    lines.push(``);
+  });
+  return lines.join("\n");
+}
 const CAT_ICON: Record<string, string> = {
   cleaning: "🧹", eda: "🔍", visualization: "📊", modeling: "🤖", preprocessing: "⚙️",
 };
