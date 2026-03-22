@@ -709,6 +709,149 @@ function ColsPanel({ datasetCols }: { datasetCols: DatasetColumns }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+//  TEMPLATES
+// ══════════════════════════════════════════════════════════════════
+const PIPELINE_TEMPLATES: { name: string; description: string; icon: string; steps: Omit<PipelineStep, "id" | "status">[] }[] = [
+  {
+    name: "Quick EDA",
+    description: "Dataset overview, missing values, and data quality check.",
+    icon: "🔍",
+    steps: [
+      { tool: "dataset_overview", label: "Dataset Overview", args: {}, reason: "Get a summary of the dataset.", category: "eda" },
+      { tool: "detect_missing_values", label: "Detect Missing Values", args: {}, reason: "Find missing data.", category: "eda" },
+      { tool: "data_quality_report", label: "Data Quality Report", args: {}, reason: "Check for duplicates and anomalies.", category: "eda" },
+    ],
+  },
+  {
+    name: "Data Cleaning",
+    description: "Handle missing values, remove duplicates, and fix outliers.",
+    icon: "🧹",
+    steps: [
+      { tool: "detect_missing_values", label: "Detect Missing Values", args: {}, reason: "Identify columns with missing data.", category: "eda" },
+      { tool: "handle_missing_values", label: "Handle Missing Values", args: { strategy: "median" }, reason: "Impute missing values using median strategy.", category: "cleaning" },
+      { tool: "remove_duplicates", label: "Remove Duplicates", args: {}, reason: "Drop duplicate rows.", category: "cleaning" },
+    ],
+  },
+  {
+    name: "Full ML Pipeline",
+    description: "End-to-end: EDA ➜ clean ➜ preprocess ➜ train ➜ evaluate.",
+    icon: "🤖",
+    steps: [
+      { tool: "dataset_overview", label: "Dataset Overview", args: {}, reason: "Understand the data before modelling.", category: "eda" },
+      { tool: "handle_missing_values", label: "Handle Missing Values", args: { strategy: "median" }, reason: "Clean missing data.", category: "cleaning" },
+      { tool: "standard_scaler", label: "Standard Scaler", args: { columns_to_scale: "" }, reason: "Normalize numeric features.", category: "preprocessing" },
+      { tool: "train_test_split", label: "Train/Test Split", args: { target_column: "", test_size: "0.2" }, reason: "Split data for evaluation.", category: "preprocessing" },
+      { tool: "auto_ml_pipeline", label: "AutoML Pipeline", args: { target_column: "", cv_folds: "5" }, reason: "Train and compare multiple models.", category: "modeling" },
+    ],
+  },
+  {
+    name: "Visualization Suite",
+    description: "Generate correlation heatmap, histograms, and scatter plots.",
+    icon: "📊",
+    steps: [
+      { tool: "correlation_heatmap", label: "Correlation Heatmap", args: {}, reason: "Visualize feature correlations.", category: "visualization" },
+      { tool: "histogram", label: "Histogram", args: { column: "" }, reason: "See distribution of a column.", category: "visualization" },
+      { tool: "scatter_plot", label: "Scatter Plot", args: { x_column: "", y_column: "" }, reason: "Plot relationships between features.", category: "visualization" },
+    ],
+  },
+];
+
+function TemplateModal({ onSelect, onClose }: { onSelect: (steps: any[]) => void; onClose: () => void }) {
+  const [hovered, setHovered] = useState<string | null>(null);
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <motion.div initial={{ scale: 0.93, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.93 }} onClick={e => e.stopPropagation()}
+        style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.borderMd}`, width: "100%", maxWidth: 520, overflow: "hidden" }}>
+        <div style={{ padding: "20px 22px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, marginBottom: 4 }}>📋 Pipeline Templates</div>
+          <div style={{ fontSize: 12, color: C.textSub }}>Start quickly with a pre-built pipeline.</div>
+        </div>
+        <div style={{ padding: "16px 22px", display: "flex", flexDirection: "column", gap: 10, maxHeight: 420, overflowY: "auto", scrollbarWidth: "thin" as const }}>
+          {PIPELINE_TEMPLATES.map(t => {
+            const isHov = hovered === t.name;
+            return (
+              <div key={t.name}
+                onMouseEnter={() => setHovered(t.name)} onMouseLeave={() => setHovered(null)}
+                onClick={() => onSelect(t.steps.map(s => ({ ...s })))}
+                style={{
+                  padding: "14px 16px", borderRadius: 12, cursor: "pointer", transition: "all 0.15s",
+                  background: isHov ? C.cardHover : C.bg, border: `1px solid ${isHov ? C.cyan + "55" : C.border}`,
+                }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 18 }}>{t.icon}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: C.head, flex: 1 }}>{t.name}</span>
+                  <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 6, background: `${C.cyan}15`, color: C.cyan, fontFamily: C.mono, border: `1px solid ${C.cyan}25` }}>
+                    {t.steps.length} steps
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: C.textSub, lineHeight: 1.5, marginBottom: 6 }}>{t.description}</div>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+                  {t.steps.map((s, i) => {
+                    const col = CAT_COLOR[s.category] || C.textMute;
+                    return <span key={i} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 4, background: `${col}15`, color: col, fontFamily: C.mono, border: `1px solid ${col}25` }}>{s.label}</span>;
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "7px 16px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSub, fontSize: 12, cursor: "pointer", fontFamily: C.sans }}>Cancel</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function ExportModal({ steps, pipelineName, datasetLabel, onClose }: { steps: PipelineStep[]; pipelineName: string; datasetLabel: string; onClose: () => void }) {
+  const exportJSON = () => {
+    const data = {
+      name: pipelineName, dataset: datasetLabel, exportedAt: new Date().toISOString(),
+      steps: steps.map(s => ({ tool: s.tool, label: s.label, args: s.args, category: s.category, reason: s.reason, status: s.status })),
+    };
+    dlText(JSON.stringify(data, null, 2), `${pipelineName.replace(/\s+/g, "_")}_export.json`);
+    onClose();
+  };
+  const exportStepsOnly = () => {
+    const data = steps.map(s => ({ tool: s.tool, label: s.label, args: s.args, category: s.category, reason: s.reason }));
+    dlText(JSON.stringify(data, null, 2), `${pipelineName.replace(/\s+/g, "_")}_steps.json`);
+    onClose();
+  };
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <motion.div initial={{ scale: 0.93, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.93 }} onClick={e => e.stopPropagation()}
+        style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.borderMd}`, width: "100%", maxWidth: 400, overflow: "hidden" }}>
+        <div style={{ padding: "20px 22px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 700, color: C.text, marginBottom: 4 }}>↓ Export Pipeline</div>
+          <div style={{ fontSize: 12, color: C.textSub }}>Download your pipeline configuration.</div>
+        </div>
+        <div style={{ padding: "16px 22px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <button onClick={exportJSON}
+            style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${C.borderMd}`, background: C.bg, color: C.text, fontSize: 12, fontFamily: C.sans, cursor: "pointer", textAlign: "left" as const, transition: "all 0.15s" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.green + "66"; (e.currentTarget as HTMLElement).style.background = C.cardHover; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.borderMd; (e.currentTarget as HTMLElement).style.background = C.bg; }}>
+            <div style={{ fontWeight: 700, marginBottom: 3, fontFamily: C.head }}>📦 Full Export (JSON)</div>
+            <div style={{ fontSize: 10, color: C.textSub }}>Pipeline name, dataset info, steps + status.</div>
+          </button>
+          <button onClick={exportStepsOnly}
+            style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${C.borderMd}`, background: C.bg, color: C.text, fontSize: 12, fontFamily: C.sans, cursor: "pointer", textAlign: "left" as const, transition: "all 0.15s" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.violet + "66"; (e.currentTarget as HTMLElement).style.background = C.cardHover; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.borderMd; (e.currentTarget as HTMLElement).style.background = C.bg; }}>
+            <div style={{ fontWeight: 700, marginBottom: 3, fontFamily: C.head }}>📋 Steps Only (JSON)</div>
+            <div style={{ fontSize: 10, color: C.textSub }}>Reusable step definitions without metadata.</div>
+          </button>
+        </div>
+        <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "7px 16px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSub, fontSize: 12, cursor: "pointer", fontFamily: C.sans }}>Cancel</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════
 export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBuilderProps) {
