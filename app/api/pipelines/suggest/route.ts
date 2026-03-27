@@ -7,7 +7,6 @@ export async function POST(req: NextRequest) {
     const { completedSteps = [], datasetMeta = '', lastResult = '' } = body;
     const doneTools = completedSteps.map((s: any) => s.tool).join(', ') || 'none';
 
-    // ── Extract real column names from metadata ───────────────────
     let numericCols:     string[] = [];
     let categoricalCols: string[] = [];
 
@@ -35,7 +34,8 @@ Each element must have exactly:
   "label": "<short human label>",
   "args": { <args WITHOUT session_id> },
   "reason": "<one sentence>",
-  "category": "cleaning|eda|visualization|modeling"
+  "category": "cleaning|eda|visualization|modeling",
+  "priority": <integer 1-4 where 1=highest>
 }
 
 Available tools:
@@ -62,10 +62,17 @@ MANDATORY ARGS — use the REAL column names shown below, never generic placehol
   auto_ml_pipeline        → {"target_column": "${targetCol}"}
   all others              → {}
 
+Priority rules:
+  priority 1 = data cleaning & quality checks (MUST do first)
+  priority 2 = EDA & exploration
+  priority 3 = visualization
+  priority 4 = modeling & ML
+
 Rules:
 - NEVER suggest a tool already in: ${doneTools}
-- Suggest 3-5 steps
-- Follow order: cleaning → eda → visualization → modeling`;
+- Suggest 8-12 steps covering ALL phases (cleaning → eda → visualization → modeling)
+- Sort by priority ascending (1 first, 4 last)
+- Include at least 2 steps per phase if tools are available`;
 
     const userMsg = `Dataset:
 ${datasetMeta}
@@ -73,7 +80,7 @@ ${datasetMeta}
 Completed: ${doneTools}
 Last result: ${lastResult || 'N/A'}
 
-Suggest the next 3-5 pipeline steps.`;
+Suggest the next 8-12 pipeline steps covering all phases in priority order.`;
 
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
     const host     = req.headers.get('host') || 'localhost:3000';
@@ -127,8 +134,10 @@ Suggest the next 3-5 pipeline steps.`;
         if (s.tool === 'value_counts'            && !args.column)         args.column         = cat1;
         if (s.tool === 'auto_ml_pipeline'        && !args.target_column)  args.target_column  = targetCol;
 
-        return { ...s, args };
-      });
+        return { ...s, args, priority: s.priority || 2 };
+      })
+      // Sort by priority
+      .sort((a: any, b: any) => (a.priority || 2) - (b.priority || 2));
 
     return NextResponse.json({ suggestions });
   } catch (err: any) {

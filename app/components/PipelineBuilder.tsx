@@ -18,17 +18,25 @@ const C = {
 const CAT_COLOR: Record<string, string> = {
   cleaning: C.amber, eda: C.cyan, visualization: C.violet, modeling: C.green, preprocessing: C.pink,
 };
+
+// ── Phase order for AI suggestions panel ──────────────────────────
+const PHASE_ORDER = [
+  { key: 1, label: "① Data Cleaning",    color: "#F59E0B" },
+  { key: 2, label: "② Exploration & EDA", color: "#00D4FF" },
+  { key: 3, label: "③ Visualization",    color: "#8B5CF6" },
+  { key: 4, label: "④ Modeling & ML",    color: "#3FB950" },
+];
+
 function dlText(content: string, filename: string) {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
-
   URL.revokeObjectURL(url);
 }
+
 function generateReport(steps: PipelineStep[], pipelineName: string, datasetLabel: string): string {
   const lines: string[] = [
     `Pipeline Report: ${pipelineName}`,
@@ -51,6 +59,7 @@ function generateReport(steps: PipelineStep[], pipelineName: string, datasetLabe
   });
   return lines.join("\n");
 }
+
 const CAT_ICON: Record<string, string> = {
   cleaning: "🧹", eda: "🔍", visualization: "📊", modeling: "🤖", preprocessing: "⚙️",
 };
@@ -668,12 +677,25 @@ function StepCard({ step, idx, phase, isRunning, expanded, onToggleExpand, onRem
   );
 }
 
+// ── Updated SuggestionCard with priority badge ────────────────────
 function SuggestionCard({ suggestion, onAdd, disabled }: { suggestion: any; onAdd: () => void; disabled: boolean }) {
   const [hov, setHov] = useState(false);
   const color = CAT_COLOR[suggestion.category] || C.textSub;
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.18 }} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={disabled ? undefined : onAdd}
-      style={{ padding: "10px 12px", borderRadius: 10, background: hov && !disabled ? C.cardHover : C.card, border: `1px solid ${hov && !disabled ? color + "55" : C.border}`, cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.15s", opacity: disabled ? 0.5 : 1 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.18 }}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      onClick={disabled ? undefined : onAdd}
+      style={{
+        padding: "10px 12px", borderRadius: 10,
+        background: hov && !disabled ? C.cardHover : C.card,
+        border: `1px solid ${hov && !disabled ? color + "55" : C.border}`,
+        cursor: disabled ? "not-allowed" : "pointer",
+        transition: "all 0.15s", opacity: disabled ? 0.5 : 1,
+        marginBottom: 4,
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
         <span style={{ fontSize: 13 }}>{CAT_ICON[suggestion.category] || "⚙️"}</span>
         <span style={{ fontSize: 12, fontWeight: 600, color: C.text, fontFamily: C.head, flex: 1 }}>{suggestion.label}</span>
@@ -774,16 +796,11 @@ function TemplateModal({ onSelect, onClose }: { onSelect: (steps: any[]) => void
               <div key={t.name}
                 onMouseEnter={() => setHovered(t.name)} onMouseLeave={() => setHovered(null)}
                 onClick={() => onSelect(t.steps.map(s => ({ ...s })))}
-                style={{
-                  padding: "14px 16px", borderRadius: 12, cursor: "pointer", transition: "all 0.15s",
-                  background: isHov ? C.cardHover : C.bg, border: `1px solid ${isHov ? C.cyan + "55" : C.border}`,
-                }}>
+                style={{ padding: "14px 16px", borderRadius: 12, cursor: "pointer", transition: "all 0.15s", background: isHov ? C.cardHover : C.bg, border: `1px solid ${isHov ? C.cyan + "55" : C.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <span style={{ fontSize: 18 }}>{t.icon}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: C.head, flex: 1 }}>{t.name}</span>
-                  <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 6, background: `${C.cyan}15`, color: C.cyan, fontFamily: C.mono, border: `1px solid ${C.cyan}25` }}>
-                    {t.steps.length} steps
-                  </span>
+                  <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 6, background: `${C.cyan}15`, color: C.cyan, fontFamily: C.mono, border: `1px solid ${C.cyan}25` }}>{t.steps.length} steps</span>
                 </div>
                 <div style={{ fontSize: 11, color: C.textSub, lineHeight: 1.5, marginBottom: 6 }}>{t.description}</div>
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
@@ -806,10 +823,7 @@ function TemplateModal({ onSelect, onClose }: { onSelect: (steps: any[]) => void
 
 function ExportModal({ steps, pipelineName, datasetLabel, onClose }: { steps: PipelineStep[]; pipelineName: string; datasetLabel: string; onClose: () => void }) {
   const exportJSON = () => {
-    const data = {
-      name: pipelineName, dataset: datasetLabel, exportedAt: new Date().toISOString(),
-      steps: steps.map(s => ({ tool: s.tool, label: s.label, args: s.args, category: s.category, reason: s.reason, status: s.status })),
-    };
+    const data = { name: pipelineName, dataset: datasetLabel, exportedAt: new Date().toISOString(), steps: steps.map(s => ({ tool: s.tool, label: s.label, args: s.args, category: s.category, reason: s.reason, status: s.status })) };
     dlText(JSON.stringify(data, null, 2), `${pipelineName.replace(/\s+/g, "_")}_export.json`);
     onClose();
   };
@@ -828,15 +842,13 @@ function ExportModal({ steps, pipelineName, datasetLabel, onClose }: { steps: Pi
           <div style={{ fontSize: 12, color: C.textSub }}>Download your pipeline configuration.</div>
         </div>
         <div style={{ padding: "16px 22px", display: "flex", flexDirection: "column", gap: 8 }}>
-          <button onClick={exportJSON}
-            style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${C.borderMd}`, background: C.bg, color: C.text, fontSize: 12, fontFamily: C.sans, cursor: "pointer", textAlign: "left" as const, transition: "all 0.15s" }}
+          <button onClick={exportJSON} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${C.borderMd}`, background: C.bg, color: C.text, fontSize: 12, fontFamily: C.sans, cursor: "pointer", textAlign: "left" as const, transition: "all 0.15s" }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.green + "66"; (e.currentTarget as HTMLElement).style.background = C.cardHover; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.borderMd; (e.currentTarget as HTMLElement).style.background = C.bg; }}>
             <div style={{ fontWeight: 700, marginBottom: 3, fontFamily: C.head }}>📦 Full Export (JSON)</div>
             <div style={{ fontSize: 10, color: C.textSub }}>Pipeline name, dataset info, steps + status.</div>
           </button>
-          <button onClick={exportStepsOnly}
-            style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${C.borderMd}`, background: C.bg, color: C.text, fontSize: 12, fontFamily: C.sans, cursor: "pointer", textAlign: "left" as const, transition: "all 0.15s" }}
+          <button onClick={exportStepsOnly} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: `1px solid ${C.borderMd}`, background: C.bg, color: C.text, fontSize: 12, fontFamily: C.sans, cursor: "pointer", textAlign: "left" as const, transition: "all 0.15s" }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.violet + "66"; (e.currentTarget as HTMLElement).style.background = C.cardHover; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.borderMd; (e.currentTarget as HTMLElement).style.background = C.bg; }}>
             <div style={{ fontWeight: 700, marginBottom: 3, fontFamily: C.head }}>📋 Steps Only (JSON)</div>
@@ -912,7 +924,6 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
 
   useEffect(() => { pipelineIdRef.current = pipelineId; }, [pipelineId]);
 
-  // Restore session metadata when editing
   useEffect(() => {
     if (!isEditing || !initialPipeline?.sessionId) return;
     fetch(`/api/agent/session/${initialPipeline.sessionId}/metadata`)
@@ -1005,12 +1016,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
     try {
       const res = await fetch("/api/llm/run", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            { role: "system", content: "Explain the data science result in 2-3 plain English sentences. No markdown." },
-            { role: "user", content: `Step: ${step.label}\nTool: ${step.tool}\nResult: ${JSON.stringify(step.result).slice(0, 1000)}\n\nExplain what this means.` }
-          ]
-        })
+        body: JSON.stringify({ messages: [{ role: "system", content: "Explain the data science result in 2-3 plain English sentences. No markdown." }, { role: "user", content: `Step: ${step.label}\nTool: ${step.tool}\nResult: ${JSON.stringify(step.result).slice(0, 1000)}\n\nExplain what this means.` }] })
       });
       const data = await res.json();
       let text = "";
@@ -1030,23 +1036,14 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
       const existingId = pipelineIdRef.current;
       if (!existingId && !pipelineCreatedRef.current) {
         pipelineCreatedRef.current = true;
-        const res = await fetch("/api/pipelines", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: pipelineName, sessionId, metadata: { datasetMeta } })
-        });
+        const res = await fetch("/api/pipelines", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: pipelineName, sessionId, metadata: { datasetMeta } }) });
         const data = await res.json();
         const newId = data.pipeline?.id;
         if (!newId) { pipelineCreatedRef.current = false; return null; }
-        await fetch(`/api/pipelines/${newId}`, {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ steps: payload, status })
-        });
+        await fetch(`/api/pipelines/${newId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ steps: payload, status }) });
         setPipelineId(newId); pipelineIdRef.current = newId; onSaved?.(newId); return newId;
       } else if (existingId) {
-        await fetch(`/api/pipelines/${existingId}`, {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: pipelineName, steps: payload, status })
-        });
+        await fetch(`/api/pipelines/${existingId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: pipelineName, steps: payload, status }) });
         return existingId;
       }
       return pipelineIdRef.current;
@@ -1060,82 +1057,40 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
   };
 
   const saveRunHistory = async (pid: string, results: any[]) => {
-    try {
-      await fetch(`/api/pipelines/${pid}/run`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, stepResults: results })
-      });
-    } catch { }
+    try { await fetch(`/api/pipelines/${pid}/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId, stepResults: results }) }); } catch { }
   };
 
-  // ─── CORE: run steps from index ───────────────────────────────────────
   const runStepsFrom = async (startIdx: number) => {
     if (!sessionId) return;
     setPhase("run");
     const snapshot = [...steps];
-    setSteps(prev => prev.map((s, i) => i >= startIdx
-      ? { ...s, status: "pending", result: undefined, imageBase64: undefined, errorMsg: undefined, aiSummary: undefined }
-      : s
-    ));
+    setSteps(prev => prev.map((s, i) => i >= startIdx ? { ...s, status: "pending", result: undefined, imageBase64: undefined, errorMsg: undefined, aiSummary: undefined } : s));
     const runResults: any[] = [];
-
     for (let i = startIdx; i < snapshot.length; i++) {
       setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, status: "running" } : s));
       const step = snapshot[i];
-
-      // Build args — inject session_id, skip blank optional args
       const args: Record<string, any> = { session_id: sessionId };
-      for (const [k, v] of Object.entries(step.args)) {
-        if (String(v).trim() !== "") args[k] = v;
-      }
-
+      for (const [k, v] of Object.entries(step.args)) { if (String(v).trim() !== "") args[k] = v; }
       const rfId = addRF({ type: "tool", label: `Backend tool: ${step.label}`, detail: `${step.tool} (${i + 1}/${snapshot.length})`, status: "running" });
       const t0 = Date.now();
-
       try {
-        const res = await fetch("/api/agent/tools", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tool_name: step.tool, arguments: args })
-        });
+        const res = await fetch("/api/agent/tools", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tool_name: step.tool, arguments: args }) });
         const result = await res.json();
         const dur = Date.now() - t0;
-
-        // Extract image separately so we can display it
         const img64 = result?.output?.image_base64 || result?.output?.chart_base64;
-
-        // Keep ALL result data (don't strip nested objects!) — only remove the raw base64 image field
-        const clean = result.output
-          ? Object.fromEntries(Object.entries(result.output).filter(([k]) => k !== "image_base64" && k !== "chart_base64"))
-          : null;
-
+        const clean = result.output ? Object.fromEntries(Object.entries(result.output).filter(([k]) => k !== "image_base64" && k !== "chart_base64")) : null;
         const errMsg = result.success ? undefined : (result.error || result.details || "Tool failed");
-
-        updateRF(rfId, {
-          status: result.success ? "success" : "error",
-          durationMs: dur,
-          detail: result.success ? `Done in ${dur}ms` : `✗ ${errMsg?.slice(0, 80)}`
-        });
-
-        setSteps(prev => prev.map((s, idx) => idx === i ? {
-          ...s,
-          status: result.success ? "done" : "error",
-          result: clean,
-          imageBase64: img64 ? (img64.startsWith("data:") ? img64 : `data:image/png;base64,${img64}`) : undefined,
-          executionMs: result.execution_time_ms,
-          errorMsg: errMsg
-        } : s));
-
+        updateRF(rfId, { status: result.success ? "success" : "error", durationMs: dur, detail: result.success ? `Done in ${dur}ms` : `✗ ${errMsg?.slice(0, 80)}` });
+        setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, status: result.success ? "done" : "error", result: clean, imageBase64: img64 ? (img64.startsWith("data:") ? img64 : `data:image/png;base64,${img64}`) : undefined, executionMs: result.execution_time_ms, errorMsg: errMsg } : s));
         if (result.success) setExpandedResult(step.id);
         runResults.push({ tool: step.tool, success: result.success, executionMs: result.execution_time_ms, errorMsg: errMsg });
         await new Promise(r => setTimeout(r, 200));
-
       } catch (err: any) {
         updateRF(rfId, { status: "error", durationMs: Date.now() - t0, detail: err.message });
         setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, status: "error", errorMsg: err.message } : s));
         runResults.push({ tool: step.tool, success: false, errorMsg: err.message });
       }
     }
-
     setPhase("done");
     const finalId = await savePipelineToDb(snapshot, "completed");
     if (finalId) await saveRunHistory(finalId, runResults);
@@ -1151,27 +1106,14 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
     const last = [...steps].reverse().find(s => s.status === "done");
     return last?.result ? JSON.stringify(last.result).slice(0, 400) : "";
   };
-  const downloadReport = () => dlText(
-    generateReport(steps, pipelineName, datasetLabel),
-    `${pipelineName.replace(/\s+/g, "_")}_report.txt`
-  );
+  const downloadReport = () => dlText(generateReport(steps, pipelineName, datasetLabel), `${pipelineName.replace(/\s+/g, "_")}_report.txt`);
 
   const doneCount = steps.filter(s => s.status === "done").length;
   const errCount = steps.filter(s => s.status === "error").length;
   const isRunning = phase === "run";
 
-  // ─── Flow toggle button (used in both views) ──────────────────────────
   const FlowBtn = () => (
-    <button
-      onClick={() => setShowFlows(v => !v)}
-      style={{
-        padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontFamily: C.mono, fontSize: 11, flexShrink: 0,
-        display: "flex", alignItems: "center", gap: 5, transition: "all 0.2s",
-        border: `1px solid ${showFlows ? C.cyan + "55" : recentErrors > 0 ? C.red + "44" : activeFlows > 0 ? C.amber + "44" : C.border}`,
-        background: showFlows ? `${C.cyan}15` : recentErrors > 0 ? `${C.red}08` : activeFlows > 0 ? `${C.amber}08` : "transparent",
-        color: showFlows ? C.cyan : recentErrors > 0 ? C.red : activeFlows > 0 ? C.amber : C.textMute
-      }}
-    >
+    <button onClick={() => setShowFlows(v => !v)} style={{ padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontFamily: C.mono, fontSize: 11, flexShrink: 0, display: "flex", alignItems: "center", gap: 5, transition: "all 0.2s", border: `1px solid ${showFlows ? C.cyan + "55" : recentErrors > 0 ? C.red + "44" : activeFlows > 0 ? C.amber + "44" : C.border}`, background: showFlows ? `${C.cyan}15` : recentErrors > 0 ? `${C.red}08` : activeFlows > 0 ? `${C.amber}08` : "transparent", color: showFlows ? C.cyan : recentErrors > 0 ? C.red : activeFlows > 0 ? C.amber : C.textMute }}>
       📡
       {activeFlows > 0 && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.amber, animation: "rfpulse 1.2s ease-in-out infinite" }} />}
       {flows.length > 0 && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 8, background: `${C.cyan}20`, color: C.cyan }}>{flows.length}</span>}
@@ -1191,17 +1133,11 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
               <h2 style={{ fontFamily: C.head, fontSize: "1.4rem", fontWeight: 700, color: C.text, marginBottom: 8 }}>Build a Pipeline</h2>
               <p style={{ fontSize: 12.5, color: C.textSub, maxWidth: 420, lineHeight: 1.65 }}>Upload a CSV — DSAgent suggests cleaning, analysis, and modelling steps.</p>
             </div>
-            <div
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleUpload(f); }}
-              onClick={() => fileRef.current?.click()}
-              style={{ width: "100%", maxWidth: 460, border: `2px dashed ${dragOver ? C.cyan : C.borderMd}`, borderRadius: 18, padding: "52px 32px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: dragOver ? `${C.cyan}06` : C.card, transition: "all 0.2s" }}
-            >
+            <div onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleUpload(f); }} onClick={() => fileRef.current?.click()}
+              style={{ width: "100%", maxWidth: 460, border: `2px dashed ${dragOver ? C.cyan : C.borderMd}`, borderRadius: 18, padding: "52px 32px", textAlign: "center", cursor: uploading ? "default" : "pointer", background: dragOver ? `${C.cyan}06` : C.card, transition: "all 0.2s" }}>
               {uploading
                 ? <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}><div style={{ width: 34, height: 34, border: `3px solid ${C.cyan}`, borderTopColor: "transparent", borderRadius: "50%", animation: "rfspin 0.8s linear infinite" }} /><span style={{ fontSize: 13, color: C.textSub }}>Uploading…</span></div>
-                : <><div style={{ fontSize: 36, marginBottom: 12 }}>📂</div><div style={{ fontSize: 14, fontWeight: 600, color: C.cyan, marginBottom: 6 }}>Drop your CSV here</div><div style={{ fontSize: 11, color: C.textMute }}>or click to browse</div></>
-              }
+                : <><div style={{ fontSize: 36, marginBottom: 12 }}>📂</div><div style={{ fontSize: 14, fontWeight: 600, color: C.cyan, marginBottom: 6 }}>Drop your CSV here</div><div style={{ fontSize: 11, color: C.textMute }}>or click to browse</div></>}
             </div>
             <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
             <button onClick={() => { setDatasetMeta(""); setDatasetLabel("Template"); setPipelineName("New Pipeline"); setPhase("build"); setShowTemplates(true); }} style={{ padding: "9px 22px", borderRadius: 9, border: `1px solid ${C.borderMd}`, background: "transparent", color: C.text, fontSize: 12, fontWeight: 600, fontFamily: C.head, cursor: "pointer" }}>📋 Browse Templates →</button>
@@ -1227,36 +1163,19 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
 
         {/* ── Toolbar ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", background: C.card, borderBottom: `1px solid ${C.border}`, flexShrink: 0, flexWrap: "wrap" as const }}>
-          {/* Pipeline name */}
           <div style={{ display: "flex", alignItems: "center", gap: 5, flex: 1, minWidth: 100 }}>
             {renamingPipeline
-              ? <input ref={renameRef} value={pipelineName} onChange={e => setPipelineName(e.target.value)}
-                onBlur={() => { if (!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); }}
-                onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") { if (!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); } }}
-                style={{ background: C.input, border: `1px solid ${C.cyan}55`, borderRadius: 6, outline: "none", color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, padding: "3px 8px", flex: 1, minWidth: 80, maxWidth: 220, boxShadow: `0 0 0 2px ${C.cyan}20` }}
-              />
-              : <span onDoubleClick={() => setRenamingPipeline(true)} title="Double-click to rename" style={{ color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, cursor: "text", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>{pipelineName}</span>
-            }
+              ? <input ref={renameRef} value={pipelineName} onChange={e => setPipelineName(e.target.value)} onBlur={() => { if (!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); }} onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") { if (!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); } }} style={{ background: C.input, border: `1px solid ${C.cyan}55`, borderRadius: 6, outline: "none", color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, padding: "3px 8px", flex: 1, minWidth: 80, maxWidth: 220, boxShadow: `0 0 0 2px ${C.cyan}20` }} />
+              : <span onDoubleClick={() => setRenamingPipeline(true)} title="Double-click to rename" style={{ color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, cursor: "text", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>{pipelineName}</span>}
             <button onClick={() => setRenamingPipeline(v => !v)} title="Rename" style={{ background: "none", border: "none", cursor: "pointer", color: renamingPipeline ? C.cyan : C.textMute, fontSize: 11, padding: "2px 4px", borderRadius: 4, flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = C.cyan)} onMouseLeave={e => (e.currentTarget.style.color = renamingPipeline ? C.cyan : C.textMute)}>✏️</button>
           </div>
-
-          {/* Dataset pill */}
           {datasetLabel
             ? <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: `${C.cyan}15`, color: C.cyan, border: `1px solid ${C.cyan}30`, fontFamily: C.mono, flexShrink: 0 }}>{datasetLabel}</span>
-            : <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 5, background: `${C.amber}12`, color: C.amber, border: `1px solid ${C.amber}30`, fontFamily: C.mono, cursor: "pointer", flexShrink: 0 }}>{uploading ? "⏳…" : "📂 Upload CSV"}</button>
-          }
+            : <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 5, background: `${C.amber}12`, color: C.amber, border: `1px solid ${C.amber}30`, fontFamily: C.mono, cursor: "pointer", flexShrink: 0 }}>{uploading ? "⏳…" : "📂 Upload CSV"}</button>}
           <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
-
-          {/* Status pill */}
-          <span style={{
-            fontSize: 10, padding: "3px 8px", borderRadius: 5, fontFamily: C.mono, fontWeight: 600, flexShrink: 0,
-            background: phase === "done" ? `${C.green}20` : isRunning ? `${C.amber}20` : `${C.violet}15`,
-            color: phase === "done" ? C.green : isRunning ? C.amber : C.violet,
-            border: `1px solid ${phase === "done" ? C.green + "40" : isRunning ? C.amber + "40" : C.violet + "30"}`
-          }}>
+          <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, fontFamily: C.mono, fontWeight: 600, flexShrink: 0, background: phase === "done" ? `${C.green}20` : isRunning ? `${C.amber}20` : `${C.violet}15`, color: phase === "done" ? C.green : isRunning ? C.amber : C.violet, border: `1px solid ${phase === "done" ? C.green + "40" : isRunning ? C.amber + "40" : C.violet + "30"}` }}>
             {phase === "done" ? `✓ ${doneCount}/${steps.length}` : isRunning ? `Running… ${doneCount}/${steps.length}` : `${steps.length} steps`}
           </span>
-
           {!isRunning && <button onClick={() => setShowTemplates(true)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.textSub, fontSize: 11, fontFamily: C.sans, cursor: "pointer", flexShrink: 0 }}>📋 Templates</button>}
           {sessionId && <button onClick={() => setShowDownloadCSV(true)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.teal}44`, background: `${C.teal}10`, color: C.teal, fontSize: 11, fontFamily: C.sans, cursor: "pointer", flexShrink: 0, fontWeight: 600 }}>⬇ CSV</button>}
           {phase === "done" && <button onClick={downloadReport} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.violet}33`, background: `${C.violet}10`, color: C.violet, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>📄 Report</button>}
@@ -1271,12 +1190,11 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
           <FlowBtn />
         </div>
 
-        {/* ── Body (steps + right panel) ── */}
+        {/* ── Body ── */}
         <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
 
           {/* Steps column */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-            {/* Warning banner when editing without session */}
             {isEditing && !sessionId && (
               <div style={{ margin: "8px 14px 0", padding: "10px 14px", background: `${C.amber}0D`, borderRadius: 9, border: `1px solid ${C.amber}33`, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
                 <span>⚠️</span>
@@ -1284,8 +1202,6 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
                 <button onClick={() => fileRef.current?.click()} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${C.amber}44`, background: `${C.amber}15`, color: C.amber, fontSize: 10, fontFamily: C.mono, cursor: "pointer" }}>Upload CSV →</button>
               </div>
             )}
-
-            {/* Progress bar while running */}
             {isRunning && (
               <div style={{ margin: "8px 14px 0", padding: "8px 14px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 10, color: C.textSub, fontFamily: C.mono }}>
@@ -1296,8 +1212,6 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
                 </div>
               </div>
             )}
-
-            {/* Done banner */}
             {phase === "done" && (
               <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} style={{ margin: "8px 14px 0", padding: "10px 14px", background: `${C.green}0A`, borderRadius: 9, border: `1px solid ${C.green}28`, flexShrink: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
                 <span>✅</span>
@@ -1309,8 +1223,6 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
                 <button onClick={() => fetchSuggestions(steps, datasetMeta, getLastResult())} style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${C.cyan}33`, background: `${C.cyan}10`, color: C.cyan, fontSize: 10, fontFamily: C.mono, cursor: "pointer" }}>Get next steps →</button>
               </motion.div>
             )}
-
-            {/* Steps scroll area */}
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto" as const, padding: "10px 14px", scrollbarWidth: "thin" as const, scrollbarColor: `${C.border} transparent` }}>
               {steps.length === 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: C.textMute, fontSize: 12, gap: 10, minHeight: 200 }}>
@@ -1339,7 +1251,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
             </div>
           </div>
 
-          {/* Right panel: AI suggestions + Advanced tools */}
+          {/* ── Right panel ── */}
           <div style={{ width: 282, flexShrink: 0, display: "flex", flexDirection: "column", borderLeft: `1px solid ${C.border}`, overflow: "hidden" }}>
             {/* Tab bar */}
             <div style={{ display: "flex", background: C.card, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
@@ -1350,22 +1262,75 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
               ))}
             </div>
 
-            {/* AI tab */}
+            {/* ── AI tab: grouped by phase ── */}
             {rightTab === "ai" && (
               <>
                 <div style={{ padding: "8px 10px", background: C.card, borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 10, color: C.textMute }}>LLM-powered suggestions</span>
-                  <button onClick={() => fetchSuggestions(steps, datasetMeta, getLastResult())} disabled={loadingSuggest} style={{ background: "none", border: `1px solid ${C.borderMd}`, borderRadius: 5, padding: "3px 8px", color: C.cyan, fontSize: 10, fontFamily: C.mono, cursor: "pointer", opacity: loadingSuggest ? 0.5 : 1 }}>{loadingSuggest ? "…" : "↻ Refresh"}</button>
+                  <span style={{ fontSize: 10, color: C.textMute }}>Prioritized suggestions</span>
+                  <button
+                    onClick={() => fetchSuggestions(steps, datasetMeta, getLastResult())}
+                    disabled={loadingSuggest}
+                    style={{ background: "none", border: `1px solid ${C.borderMd}`, borderRadius: 5, padding: "3px 8px", color: C.cyan, fontSize: 10, fontFamily: C.mono, cursor: "pointer", opacity: loadingSuggest ? 0.5 : 1 }}
+                  >
+                    {loadingSuggest ? "…" : "↻ Refresh"}
+                  </button>
                 </div>
-                <div style={{ flex: 1, minHeight: 0, overflowY: "auto" as const, padding: "8px", display: "flex", flexDirection: "column", gap: 6, scrollbarWidth: "thin" as const }}>
-                  {loadingSuggest && [1, 2, 3].map(i => <div key={i} style={{ height: 76, borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, opacity: 0.3 + i * 0.1 }} />)}
-                  {!loadingSuggest && !suggestions.length && <div style={{ padding: 14, textAlign: "center", color: C.textMute, fontSize: 11, background: C.card, borderRadius: 10, border: `1px solid ${C.border}` }}>{phase === "done" ? "✓ Done. Click ↻ for more." : "Click ↻ to get AI suggestions."}</div>}
-                  <AnimatePresence>{suggestions.map((s, i) => <SuggestionCard key={s.tool + i} suggestion={s} onAdd={() => addStep(s)} disabled={isRunning} />)}</AnimatePresence>
+                <div style={{ flex: 1, minHeight: 0, overflowY: "auto" as const, padding: "8px", display: "flex", flexDirection: "column", gap: 2, scrollbarWidth: "thin" as const }}>
+                  {/* Loading skeletons */}
+                  {loadingSuggest && [1, 2, 3, 4, 5].map(i => (
+                    <div key={i} style={{ height: 76, borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, opacity: 0.3 + i * 0.08, marginBottom: 4 }} />
+                  ))}
+                  {/* Empty state */}
+                  {!loadingSuggest && !suggestions.length && (
+                    <div style={{ padding: 14, textAlign: "center", color: C.textMute, fontSize: 11, background: C.card, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                      {phase === "done" ? "✓ Done. Click ↻ for more." : "Click ↻ to get AI suggestions."}
+                    </div>
+                  )}
+                  {/* Grouped suggestions */}
+                  {!loadingSuggest && suggestions.length > 0 && (() => {
+                    const grouped: Record<number, any[]> = {};
+                    suggestions.forEach(s => {
+                      const p = s.priority || 2;
+                      if (!grouped[p]) grouped[p] = [];
+                      grouped[p].push(s);
+                    });
+                    return PHASE_ORDER.map(ph => {
+                      const items = grouped[ph.key];
+                      if (!items || items.length === 0) return null;
+                      return (
+                        <div key={ph.key} style={{ marginBottom: 4 }}>
+                          {/* Phase header divider */}
+                          <div style={{
+                            display: "flex", alignItems: "center", gap: 6,
+                            padding: "8px 2px 5px",
+                            fontSize: 9, fontWeight: 700, color: ph.color,
+                            fontFamily: C.mono, letterSpacing: "0.07em",
+                            textTransform: "uppercase" as const,
+                            borderTop: ph.key > 1 ? `1px solid ${C.border}` : "none",
+                            marginTop: ph.key > 1 ? 6 : 0,
+                          }}>
+                            <div style={{ flex: 1, height: 1, background: `${ph.color}30` }} />
+                            <span>{ph.label}</span>
+                            <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 4, background: `${ph.color}18`, border: `1px solid ${ph.color}33` }}>
+                              {items.length}
+                            </span>
+                            <div style={{ flex: 1, height: 1, background: `${ph.color}30` }} />
+                          </div>
+                          {/* Cards for this phase */}
+                          <AnimatePresence>
+                            {items.map((s: any, i: number) => (
+                              <SuggestionCard key={s.tool + i} suggestion={s} onAdd={() => addStep(s)} disabled={isRunning} />
+                            ))}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </>
             )}
 
-            {/* Advanced tools tab */}
+            {/* ── Advanced tools tab ── */}
             {rightTab === "advanced" && (
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto" as const, padding: "8px", display: "flex", flexDirection: "column", gap: 5, scrollbarWidth: "thin" as const }}>
                 {(["preprocessing", "cleaning", "modeling"] as const).map(cat => {
@@ -1409,7 +1374,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
         </div>
       </div>
 
-      {/* Request Flow slide-in panel */}
+      {/* Request Flow panel */}
       <AnimatePresence>
         {showFlows && (
           <motion.div key="flow-panel" initial={{ width: 0 }} animate={{ width: 300 }} exit={{ width: 0 }} transition={{ type: "spring", stiffness: 340, damping: 34 }} style={{ flexShrink: 0, overflow: "hidden", height: "100%", borderLeft: `1px solid ${C.border}` }}>
