@@ -1,8 +1,9 @@
+// /app/page.tsx
 "use client";
 
 import Link from "next/link";
 import React, { useRef, useState, useEffect, useMemo, Suspense } from "react";
-import { motion, useScroll, useTransform, useInView } from "framer-motion";
+import { motion, useScroll, useTransform, useInView, MotionValue } from "framer-motion";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Stars } from "@react-three/drei";
 import * as THREE from "three";
@@ -73,9 +74,11 @@ function FloatingFragment({
 function DataRobot({
   scrollRef,
   mouseRef,
+  pipelineScroll,
 }: {
   scrollRef: React.MutableRefObject<number>;
   mouseRef: React.MutableRefObject<{ x: number; y: number }>;
+  pipelineScroll: any;
 }) {
   const group = useRef<THREE.Group>(null!);
   const head = useRef<THREE.Group>(null!);
@@ -95,17 +98,46 @@ function DataRobot({
     [],
   );
 
+  const baseY = -1.9;
+
   useFrame((s) => {
     const t = s.clock.elapsedTime;
     const scroll = scrollRef.current;
     const mouse = mouseRef.current;
+
+    // pipeline scroll (0 → 1)
+    const p = pipelineScroll.get();
+
+    // smooth motion and speed boost
+    const eased = p * p * (3 - 2 * p); // smoothstep
+
+    // START (top-left) → END (bottom-right)
+    const xTarget = THREE.MathUtils.lerp(-4, 4, eased);
+    const yTarget = THREE.MathUtils.lerp(0, -2, eased);
+
+    // smooth movement
+    group.current.position.x = THREE.MathUtils.lerp(
+      group.current.position.x,
+      xTarget,
+      0.06
+    );
+
+    group.current.position.y = THREE.MathUtils.lerp(
+      group.current.position.y,
+      yTarget,
+      0.06
+    );
+
+    // tilt while moving
+    group.current.rotation.z = (p - 0.5) * 0.2;
 
     // scroll rotation
     const targetY = scroll * Math.PI * 3.5;
     group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, targetY, 0.045);
 
     // float
-    group.current.position.y = Math.sin(t * 0.38) * 0.12;
+    const float = Math.sin(t * 0.3) * 0.05 * p;
+    group.current.position.y += float;
 
     // head tracks mouse
     head.current.rotation.y = THREE.MathUtils.lerp(head.current.rotation.y, mouse.x * 0.45, 0.04);
@@ -123,12 +155,12 @@ function DataRobot({
   });
 
   /* shared material props */
-  const D: any = { color: "#0a0a18", metalness: 0.95, roughness: 0.05 };
-  const M: any = { color: "#111128", metalness: 0.9, roughness: 0.1 };
-  const A: any = { color: "#1a1a38", metalness: 0.85, roughness: 0.15 };
+  const D = { color: "#0a0f2a", metalness: 0.95, roughness: 0.05 };
+  const M = { color: "#141a3d", metalness: 0.9, roughness: 0.1 };
+  const A = { color: "#1f2a5a", metalness: 0.85, roughness: 0.15 };
 
   return (
-    <group ref={group} position={[1.3, -0.3, 0]} scale={0.82}>
+    <group ref={group} position={[-2.4, -1.9, 0]} scale={0.82}>
       {/* ──── HEAD ──── */}
       <group ref={head} position={[0, 2.2, 0]}>
         <mesh><boxGeometry args={[0.72, 0.62, 0.68]} /><meshStandardMaterial {...D} /></mesh>
@@ -156,9 +188,9 @@ function DataRobot({
         {/* core */}
         <mesh ref={core} position={[0, 0.12, 0.34]}>
           <icosahedronGeometry args={[0.09, 0]} />
-          <meshStandardMaterial emissive="#4488ff" emissiveIntensity={2} color="#112244" transparent opacity={0.9} />
+          <meshStandardMaterial emissive="#4488ff" emissiveIntensity={2.5} color="#112255" transparent opacity={0.9} />
         </mesh>
-        <pointLight position={[0, 0.12, 0.6]} color="#4488ff" intensity={1.6} distance={3.5} />
+        <pointLight position={[0, 0.12, 0.6]} color="#3b82f6" intensity={2} distance={3.5} />
         {/* shoulders */}
         <mesh position={[-0.6, 0.38, 0]}><boxGeometry args={[0.22, 0.28, 0.36]} /><meshStandardMaterial {...M} /></mesh>
         <mesh position={[0.6, 0.38, 0]}><boxGeometry args={[0.22, 0.28, 0.36]} /><meshStandardMaterial {...M} /></mesh>
@@ -209,9 +241,11 @@ function DataRobot({
 function HeroScene({
   scrollRef,
   mouseRef,
+  pipelineScroll,
 }: {
   scrollRef: React.MutableRefObject<number>;
   mouseRef: React.MutableRefObject<{ x: number; y: number }>;
+  pipelineScroll: MotionValue<number>;
 }) {
   return (
     <>
@@ -222,7 +256,7 @@ function HeroScene({
       <fog attach="fog" args={["#080808", 6, 22]} />
       <Stars radius={80} depth={60} count={1800} factor={3} saturation={0} fade speed={0.4} />
       <SceneParticles />
-      <DataRobot scrollRef={scrollRef} mouseRef={mouseRef} />
+      <DataRobot scrollRef={scrollRef} mouseRef={mouseRef} pipelineScroll={pipelineScroll} />
       <Environment preset="night" />
     </>
   );
@@ -265,7 +299,7 @@ function Grain() {
 /* ═══════════════════════════════════════════════════════════════
    UI — GLASS CARD
    ═══════════════════════════════════════════════════════════════ */
-function Glass({ children, style, onMouseEnter, onMouseLeave, ...rest }: { children: React.ReactNode; style?: React.CSSProperties; onMouseEnter?: React.MouseEventHandler; onMouseLeave?: React.MouseEventHandler; [k: string]: any }) {
+function Glass({ children, style, onMouseEnter, onMouseLeave, ...rest }: { children: React.ReactNode; style?: React.CSSProperties; onMouseEnter?: React.MouseEventHandler; onMouseLeave?: React.MouseEventHandler;[k: string]: any }) {
   return (
     <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} {...rest} style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(24px) saturate(180%)", WebkitBackdropFilter: "blur(24px) saturate(180%)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, transition: "border-color 0.3s, background 0.3s", ...style }}>
       {children}
@@ -411,7 +445,12 @@ export default function Home() {
   const scrollRef = useRef(0);
   const mouseRef = useRef({ x: 0, y: 0 });
   const [mounted, setMounted] = useState(false);
+  const pipelineRef = useRef<HTMLDivElement>(null);
 
+  const { scrollYProgress: pipelineScroll } = useScroll({
+    target: pipelineRef,
+    offset: ["start end", "end start"],
+  });
   useEffect(() => {
     setMounted(true);
     const onScroll = () => {
@@ -464,7 +503,7 @@ export default function Home() {
             style={{ background: "transparent" }}
           >
             <Suspense fallback={null}>
-              <HeroScene scrollRef={scrollRef} mouseRef={mouseRef} />
+              <HeroScene scrollRef={scrollRef} mouseRef={mouseRef} pipelineScroll={pipelineScroll} />
             </Suspense>
           </Canvas>
         </div>
@@ -621,7 +660,7 @@ export default function Home() {
         <Marquee />
 
         {/* ────────────────────── PIPELINE ────────────────────── */}
-        <div id="pipeline">
+        <div id="pipeline" ref={pipelineRef}>
           <HorizontalPipeline />
         </div>
 
