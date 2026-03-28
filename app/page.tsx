@@ -155,9 +155,9 @@ function DataRobot({
   });
 
   /* shared material props */
-  const D = { color: "#0a0f2a", metalness: 0.95, roughness: 0.05 };
-  const M = { color: "#141a3d", metalness: 0.9, roughness: 0.1 };
-  const A = { color: "#1f2a5a", metalness: 0.85, roughness: 0.15 };
+  const D = { color: "#140a2a", metalness: 0.95, roughness: 0.05 };
+  const M = { color: "#2a145a", metalness: 0.9, roughness: 0.1 };
+  const A = { color: "#4c1d95", metalness: 0.85, roughness: 0.15 };
 
   return (
     <group ref={group} position={[-2.4, -1.9, 0]} scale={0.82}>
@@ -188,7 +188,7 @@ function DataRobot({
         {/* core */}
         <mesh ref={core} position={[0, 0.12, 0.34]}>
           <icosahedronGeometry args={[0.09, 0]} />
-          <meshStandardMaterial emissive="#4488ff" emissiveIntensity={2.5} color="#112255" transparent opacity={0.9} />
+          <meshStandardMaterial emissive="#4488ff" emissiveIntensity={2.5} color="#cc15e4ff" transparent opacity={0.9} />
         </mesh>
         <pointLight position={[0, 0.12, 0.6]} color="#3b82f6" intensity={2} distance={3.5} />
         {/* shoulders */}
