@@ -520,11 +520,6 @@ dsagent/
 
 ---
 
-<div align="center">
-
-Built by [Jatin](https://github.com/jatinnathh)
-
-</div>
 
 
 <p align="center">
