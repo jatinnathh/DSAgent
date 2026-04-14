@@ -39,8 +39,6 @@
   - [AI Agent (ReAct Pattern)](#ai-agent-react-pattern)
 - [Tech Stack](#tech-stack)
 - [API Endpoints](#api-endpoints)
-- [Database Schema](#database-schema)
-- [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Roadmap](#roadmap)
 
@@ -354,48 +352,7 @@ The core agent (`DSAgent`) implements a **ReAct (Reasoning + Acting)** loop:
 
 ---
 
-## Database Schema
 
-```prisma
-model User {
-  id        String     @id
-  clerkId   String     @unique
-  email     String     @unique
-  chats     Chat[]
-  pipelines Pipeline[]
-}
-
-model Chat {
-  id        String    @id
-  title     String
-  userId    String
-  sessionId String?        // Links to backend CSV session
-  messages  Message[]
-}
-
-model Message {
-  id      String @id
-  chatId  String
-  role    String              // "user" | "assistant" | "tool"
-  content String
-}
-
-model Pipeline {
-  id       String        @id
-  userId   String
-  name     String
-  status   String             // "draft" | "running" | "completed" | "failed"
-  steps    Json               // Array of {tool, args, category}
-  runs     PipelineRun[]
-}
-
-model PipelineRun {
-  id          String @id
-  pipelineId  String
-  status      String
-  stepResults Json          // Array of {tool, success, output, executionMs}
-}
-```
 
 ---
 
