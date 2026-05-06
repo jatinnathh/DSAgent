@@ -18,6 +18,7 @@
     "@rive-app/react-canvas": "^4.27.1",
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^1.12.68",
+    "@vercel/analytics": "^2.0.1",
     "bytez.js": "^3.0.0",
     "framer-motion": "^12.35.2",
     "next": "16.1.6",

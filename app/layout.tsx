@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ClerkProvider } from '@clerk/nextjs'
+import { Analytics } from '@vercel/analytics/react'
 export const metadata: Metadata = {
   title: "DSAgent — Autonomous Data Science Agent",
   description:
@@ -29,6 +30,7 @@ export default function RootLayout({
       </head>
       <body>
         <ClerkProvider>{children}</ClerkProvider>
+        <Analytics />
       </body>
     </html>
   );
