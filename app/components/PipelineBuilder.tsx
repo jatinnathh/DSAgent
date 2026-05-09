@@ -750,7 +750,7 @@ const PIPELINE_TEMPLATES: { name: string; description: string; icon: string; ste
     icon: "🧹",
     steps: [
       { tool: "detect_missing_values", label: "Detect Missing Values", args: {}, reason: "Identify columns with missing data.", category: "eda" },
-      { tool: "handle_missing_values", label: "Handle Missing Values", args: { strategy: "median" }, reason: "Impute missing values using median strategy.", category: "cleaning" },
+      { tool: "fill_missing_values", label: "Handle Missing Values", args: { strategy: "median" }, reason: "Impute missing values using median strategy.", category: "cleaning" },
       { tool: "remove_duplicates", label: "Remove Duplicates", args: {}, reason: "Drop duplicate rows.", category: "cleaning" },
     ],
   },
@@ -760,7 +760,7 @@ const PIPELINE_TEMPLATES: { name: string; description: string; icon: string; ste
     icon: "🤖",
     steps: [
       { tool: "dataset_overview", label: "Dataset Overview", args: {}, reason: "Understand the data before modelling.", category: "eda" },
-      { tool: "handle_missing_values", label: "Handle Missing Values", args: { strategy: "median" }, reason: "Clean missing data.", category: "cleaning" },
+      { tool: "fill_missing_values", label: "Handle Missing Values", args: { strategy: "median" }, reason: "Clean missing data.", category: "cleaning" },
       { tool: "standard_scaler", label: "Standard Scaler", args: { columns_to_scale: "" }, reason: "Normalize numeric features.", category: "preprocessing" },
       { tool: "train_test_split", label: "Train/Test Split", args: { target_column: "", test_size: "0.2" }, reason: "Split data for evaluation.", category: "preprocessing" },
       { tool: "auto_ml_pipeline", label: "AutoML Pipeline", args: { target_column: "", cv_folds: "5" }, reason: "Train and compare multiple models.", category: "modeling" },
@@ -771,9 +771,9 @@ const PIPELINE_TEMPLATES: { name: string; description: string; icon: string; ste
     description: "Generate correlation heatmap, histograms, and scatter plots.",
     icon: "📊",
     steps: [
-      { tool: "correlation_heatmap", label: "Correlation Heatmap", args: {}, reason: "Visualize feature correlations.", category: "visualization" },
-      { tool: "histogram", label: "Histogram", args: { column: "" }, reason: "See distribution of a column.", category: "visualization" },
-      { tool: "scatter_plot", label: "Scatter Plot", args: { x_column: "", y_column: "" }, reason: "Plot relationships between features.", category: "visualization" },
+      { tool: "create_correlation_heatmap", label: "Correlation Heatmap", args: {}, reason: "Visualize feature correlations.", category: "visualization" },
+      { tool: "create_histogram", label: "Histogram", args: { column: "" }, reason: "See distribution of a column.", category: "visualization" },
+      { tool: "create_scatter_plot", label: "Scatter Plot", args: { x_column: "", y_column: "" }, reason: "Plot relationships between features.", category: "visualization" },
     ],
   },
 ];

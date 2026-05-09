@@ -1,12 +1,268 @@
-// /app/page.tsx of dsagent 
+// /app/page.tsx of dsagent
 "use client";
 
 import Link from "next/link";
 import React, { useRef, useState, useEffect, useMemo, Suspense } from "react";
-import { motion, useScroll, useTransform, useInView, MotionValue } from "framer-motion";
+import { motion, useScroll, useTransform, useInView, MotionValue, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Stars } from "@react-three/drei";
 import * as THREE from "three";
+
+/* ═══════════════════════════════════════════════════════════════
+   PROFESSIONAL INTRO — loader → mask reveal → 3D zoom handoff
+   ═══════════════════════════════════════════════════════════════ */
+function IntroOverlay({ onComplete }: { onComplete: () => void }) {
+  const [phase, setPhase] = useState<"boot" | "load" | "reveal" | "done">("boot");
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase("load"), 600);
+    return () => clearTimeout(t1);
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "load") return;
+    const start = performance.now();
+    const dur = 1600;
+    let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min((t - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setProgress(Math.floor(eased * 100));
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else setPhase("reveal");
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "reveal") return;
+    const t = setTimeout(() => { setPhase("done"); onComplete(); }, 900);
+    return () => clearTimeout(t);
+  }, [phase, onComplete]);
+
+  if (phase === "done") return null;
+
+  const isRevealing = phase === "reveal";
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key="intro"
+        initial={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        style={{
+          position: "fixed", inset: 0, zIndex: 99999,
+          background: "#050505",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          overflow: "hidden",
+          clipPath: isRevealing
+            ? "circle(150% at 50% 50%)"
+            : "circle(100% at 50% 50%)",
+          transition: "clip-path 0.9s cubic-bezier(0.76, 0, 0.24, 1)",
+        }}
+      >
+        <div style={{
+          position: "absolute", inset: 0, opacity: 0.04,
+          backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)",
+          backgroundSize: "60px 60px",
+          maskImage: "radial-gradient(ellipse at center, black 0%, transparent 70%)",
+          WebkitMaskImage: "radial-gradient(ellipse at center, black 0%, transparent 70%)",
+        }} />
+
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.6) 100%)",
+        }} />
+
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: isRevealing ? 0 : 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          style={{
+            position: "absolute", top: 32, left: 32,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase",
+            color: "rgba(255,255,255,0.35)",
+            display: "flex", alignItems: "center", gap: 10,
+          }}
+        >
+          <span style={{
+            display: "inline-block", width: 6, height: 6, borderRadius: "50%",
+            background: "#4488ff", boxShadow: "0 0 8px #4488ff",
+          }} />
+          DSAGENT / SYSTEM
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: isRevealing ? 0 : 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          style={{
+            position: "absolute", top: 32, right: 32,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase",
+            color: "rgba(255,255,255,0.25)",
+          }}
+        >
+          v1.0.0 — BETA
+        </motion.div>
+
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center",
+          gap: 36, position: "relative", zIndex: 2,
+        }}>
+          <div style={{ display: "flex", overflow: "hidden", paddingBottom: 8 }}>
+            {"DSAgent".split("").map((char, i) => (
+              <motion.span
+                key={i}
+                initial={{ y: "110%", opacity: 0 }}
+                animate={
+                  isRevealing
+                    ? { y: "-110%", opacity: 0 }
+                    : { y: "0%", opacity: 1 }
+                }
+                transition={{
+                  duration: 0.7,
+                  delay: isRevealing ? i * 0.03 : 0.2 + i * 0.06,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                style={{
+                  display: "inline-block",
+                  fontFamily: "'Instrument Serif', Georgia, serif",
+                  fontSize: "clamp(48px, 7vw, 88px)",
+                  letterSpacing: "-0.03em",
+                  fontStyle: i === 2 ? "italic" : "normal",
+                  color: i === 2 ? "rgba(255,255,255,0.5)" : "#fff",
+                }}
+              >
+                {char}
+              </motion.span>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: isRevealing ? 0 : 0.5, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.7 }}
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 11,
+              letterSpacing: "0.32em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.45)",
+            }}
+          >
+            Autonomous Data Scientist
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: isRevealing ? 0 : 1 }}
+            transition={{ duration: 0.4, delay: 0.9 }}
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+              marginTop: 12,
+            }}
+          >
+            <div style={{
+              width: 220, height: 1,
+              background: "rgba(255,255,255,0.08)",
+              position: "relative", overflow: "hidden",
+            }}>
+              <motion.div
+                style={{
+                  position: "absolute", inset: 0,
+                  width: `${progress}%`,
+                  background: "linear-gradient(90deg, rgba(68,136,255,0.8), rgba(139,92,246,0.8))",
+                  boxShadow: "0 0 12px rgba(68,136,255,0.5)",
+                }}
+              />
+            </div>
+            <div style={{
+              display: "flex", justifyContent: "space-between", width: 220,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 9, letterSpacing: "0.18em",
+              color: "rgba(255,255,255,0.3)",
+            }}>
+              <span>INITIALIZING</span>
+              <span>{progress.toString().padStart(3, "0")}%</span>
+            </div>
+          </motion.div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isRevealing ? 0 : 1 }}
+          transition={{ duration: 0.4, delay: 1 }}
+          style={{
+            position: "absolute", bottom: 32, left: 32,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 9, letterSpacing: "0.15em",
+            color: "rgba(255,255,255,0.22)",
+            lineHeight: 2,
+          }}
+        >
+          <div>→ LOADING WEBGL CONTEXT</div>
+          <div>→ COMPILING SHADERS</div>
+          <div>→ ASSEMBLING GEOMETRY {progress > 60 ? "✓" : "..."}</div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: progress > 95 && !isRevealing ? 0.4 : 0 }}
+          transition={{ duration: 0.4 }}
+          style={{
+            position: "absolute", bottom: 32, right: 32,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase",
+            color: "rgba(255,255,255,0.4)",
+          }}
+        >
+          READY — ENTERING
+        </motion.div>
+
+        {[
+          { top: 24, left: 24, rotate: 0 },
+          { top: 24, right: 24, rotate: 90 },
+          { bottom: 24, right: 24, rotate: 180 },
+          { bottom: 24, left: 24, rotate: 270 },
+        ].map((p, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: isRevealing ? 0 : 0.4, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.3 + i * 0.05 }}
+            style={{
+              position: "absolute", ...p,
+              width: 16, height: 16,
+              borderTop: "1px solid rgba(255,255,255,0.4)",
+              borderLeft: "1px solid rgba(255,255,255,0.4)",
+              transform: `rotate(${p.rotate}deg)`,
+            }}
+          />
+        ))}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   3D SCENE — CAMERA RIG (zoom in after intro)
+   ═══════════════════════════════════════════════════════════════ */
+function CameraRig({ introZoom }: { introZoom: MotionValue<number> }) {
+  useFrame(({ camera }) => {
+    const z = introZoom.get();
+    // Zooms from far (14) to close (6) as intro completes
+    const targetZ = 14 - z * 8; // 14 → 6
+    const targetY = 0.5 + (1 - z) * 1.0;
+    camera.position.z += (targetZ - camera.position.z) * 0.06;
+    camera.position.y += (targetY - camera.position.y) * 0.06;
+    camera.lookAt(0, 0, 0);
+  });
+  return null;
+}
 
 /* ═══════════════════════════════════════════════════════════════
    3D SCENE — FLOATING PARTICLES
@@ -69,7 +325,7 @@ function FloatingFragment({
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   3D SCENE — DATA AGENT ROBOT
+   3D SCENE — DATA AGENT ROBOT (unchanged from v1)
    ═══════════════════════════════════════════════════════════════ */
 function DataRobot({
   scrollRef,
@@ -236,19 +492,22 @@ function DataRobot({
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   3D SCENE — COMBINED HERO SCENE
+   3D SCENE — COMBINED HERO SCENE (now with CameraRig)
    ═══════════════════════════════════════════════════════════════ */
 function HeroScene({
   scrollRef,
   mouseRef,
   pipelineScroll,
+  introZoom,
 }: {
   scrollRef: React.MutableRefObject<number>;
   mouseRef: React.MutableRefObject<{ x: number; y: number }>;
   pipelineScroll: MotionValue<number>;
+  introZoom: MotionValue<number>;
 }) {
   return (
     <>
+      <CameraRig introZoom={introZoom} />
       <ambientLight intensity={0.12} />
       <directionalLight position={[5, 5, 5]} intensity={0.35} color="#aabbff" />
       <directionalLight position={[-4, 3, -4]} intensity={0.18} color="#ffaacc" />
@@ -445,12 +704,18 @@ export default function Home() {
   const scrollRef = useRef(0);
   const mouseRef = useRef({ x: 0, y: 0 });
   const [mounted, setMounted] = useState(false);
+  const [introComplete, setIntroComplete] = useState(false);
   const pipelineRef = useRef<HTMLDivElement>(null);
 
   const { scrollYProgress: pipelineScroll } = useScroll({
     target: pipelineRef,
     offset: ["start end", "end start"],
   });
+
+  // Intro zoom: 0 → 1 after intro completes, drives CameraRig
+  const introZoomTarget = useMotionValue(0);
+  const introZoom = useSpring(introZoomTarget, { stiffness: 50, damping: 18, mass: 1 });
+
   useEffect(() => {
     setMounted(true);
     const onScroll = () => {
@@ -463,6 +728,11 @@ export default function Home() {
     window.addEventListener("mousemove", onMouse, { passive: true });
     return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("mousemove", onMouse); };
   }, []);
+
+  // Trigger the zoom when intro finishes
+  useEffect(() => {
+    if (introComplete) introZoomTarget.set(1);
+  }, [introComplete, introZoomTarget]);
 
   /* ── hero parallax ── */
   const heroRef = useRef<HTMLDivElement>(null);
@@ -493,17 +763,25 @@ export default function Home() {
         @keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
       `}</style>
 
+      {/* ═════ INTRO OVERLAY ═════ */}
+      {mounted && <IntroOverlay onComplete={() => setIntroComplete(true)} />}
+
       {/* ═════ FIXED 3D BACKGROUND ═════ */}
       {mounted && (
         <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
           <Canvas
-            camera={{ position: [0, 0.5, 6], fov: 45 }}
+            camera={{ position: [0, 1.2, 14], fov: 45 }}
             dpr={[1, 1.5]}
             gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
             style={{ background: "transparent" }}
           >
             <Suspense fallback={null}>
-              <HeroScene scrollRef={scrollRef} mouseRef={mouseRef} pipelineScroll={pipelineScroll} />
+              <HeroScene
+                scrollRef={scrollRef}
+                mouseRef={mouseRef}
+                pipelineScroll={pipelineScroll}
+                introZoom={introZoom}
+              />
             </Suspense>
           </Canvas>
         </div>
@@ -524,13 +802,19 @@ export default function Home() {
       <Grain />
       <Cursor />
 
-      {/* ═════ ALL CONTENT (above 3D) ═════ */}
-      <div style={{ position: "relative", zIndex: 2 }}>
+      {/* ═════ ALL CONTENT (above 3D) — fades in after intro ═════ */}
+      <motion.div
+        style={{ position: "relative", zIndex: 2 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: introComplete ? 1 : 0 }}
+        transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+      >
 
         {/* ────────────────────── NAV ────────────────────── */}
         <motion.nav
-          initial={{ y: -70, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ y: -70, opacity: 0 }}
+          animate={introComplete ? { y: 0, opacity: 1 } : { y: -70, opacity: 0 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
           style={{
             position: "fixed", top: 14, left: "50%", transform: "translateX(-50%)", zIndex: 1000,
             width: "calc(100% - 40px)", maxWidth: 880, display: "flex", alignItems: "center",
@@ -569,7 +853,12 @@ export default function Home() {
 
           <motion.div style={{ y: heroY, opacity: heroOp, textAlign: "center", maxWidth: 880, position: "relative", zIndex: 2 }}>
             {/* status pill */}
-            <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }} style={{ display: "inline-flex", alignItems: "center", marginBottom: 44 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={introComplete ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              style={{ display: "inline-flex", alignItems: "center", marginBottom: 44 }}
+            >
               <Glass style={{ padding: "6px 16px", borderRadius: 100, display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.7)", animation: "pulse-dot 2.5s ease-out infinite" }} />
                 <span style={{ fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", fontFamily: "var(--mono)" }}>Public Beta</span>
@@ -577,22 +866,34 @@ export default function Home() {
             </motion.div>
 
             {/* headline */}
-            <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={introComplete ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+              transition={{ duration: 0.8, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
               style={{ fontFamily: "var(--serif)", fontSize: "clamp(52px, 9.5vw, 108px)", fontWeight: 400, lineHeight: 0.96, letterSpacing: "-0.04em", color: "#fff", marginBottom: 10 }}>
               Your Autonomous
             </motion.h1>
-            <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.32, ease: [0.16, 1, 0.3, 1] }}
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={introComplete ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+              transition={{ duration: 0.8, delay: 0.62, ease: [0.16, 1, 0.3, 1] }}
               style={{ fontFamily: "var(--serif)", fontSize: "clamp(52px, 9.5vw, 108px)", fontWeight: 400, lineHeight: 0.96, letterSpacing: "-0.04em", color: "rgba(255,255,255,0.32)", fontStyle: "italic", marginBottom: 40 }}>
               Data Scientist
             </motion.h1>
 
-            <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.5 }}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={introComplete ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+              transition={{ duration: 0.7, delay: 0.76 }}
               style={{ fontSize: 16, color: "rgba(255,255,255,0.38)", lineHeight: 1.7, maxWidth: 480, margin: "0 auto 48px" }}>
               Upload a CSV — get data cleaning, analysis, visualizations, and trained ML models automatically. AI explains every step.
             </motion.p>
 
             {/* CTAs */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.62 }}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={introComplete ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+              transition={{ duration: 0.7, delay: 0.88 }}
               style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 72 }}>
               <Link href="/dashboard" data-hover style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "13px 28px", borderRadius: 100, background: "#fff", color: "#080808", fontSize: 13, fontWeight: 600, textDecoration: "none", letterSpacing: "-0.01em", transition: "opacity 0.2s, transform 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.opacity = "0.9"; e.currentTarget.style.transform = "translateY(-1px)"; }}
@@ -605,7 +906,10 @@ export default function Home() {
             </motion.div>
 
             {/* stats */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.95 }}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={introComplete ? { opacity: 1 } : { opacity: 0 }}
+              transition={{ duration: 0.8, delay: 1 }}
               style={{ display: "flex", justifyContent: "center", gap: 56, flexWrap: "wrap" }}>
               {[
                 { value: 50, suffix: "+", label: "ML Tools" },
@@ -810,7 +1114,7 @@ export default function Home() {
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", fontFamily: "var(--mono)" }}>© 2025 DSAgent</div>
         </footer>
 
-      </div>{/* end content wrapper */}
+      </motion.div>{/* end content wrapper */}
     </>
   );
 }

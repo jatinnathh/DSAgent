@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 const HF_API_KEY = process.env.HF_API_KEY!;
 const MODEL_ID = "Qwen/Qwen3-8B";
 
-// ✅ FIX: Use nscale provider (where Qwen3-8B is actually hosted)
-const HF_ENDPOINT = `https://router.huggingface.co/nscale/v1/chat/completions`;
+// Using HuggingFace router with featherless-ai provider
+const HF_ENDPOINT = `https://router.huggingface.co/v1/chat/completions`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     const payload: Record<string, any> = {
       model: MODEL_ID,
       messages: processedMessages,
-      max_tokens: 2048,
+      max_tokens: 4096,
       temperature: 0.6,
       stream: false,
     };
@@ -98,28 +98,44 @@ export async function POST(req: NextRequest) {
     const finishReason = choice.finish_reason;
 
     // ── Extract text content ──────────────────────────────────────────
-    // Qwen3 can return text in TWO places:
+    // Qwen models can return text in TWO places:
     //   1. msg.content (normal response, especially with /no_think)
     //   2. msg.reasoning_content (thinking mode — fallback if /no_think fails)
-    // We check both.
+    // We check both and combine if needed.
 
     const contentBlocks: any[] = [];
 
     // Primary: msg.content
     let textContent = msg.content ?? "";
     
-    // ✅ FIX: Fallback to reasoning_content if content is null/empty
-    // This happens when Qwen3 uses thinking mode despite /no_think
+    // Fallback to reasoning_content if content is null/empty
     if (!textContent && msg.reasoning_content) {
       console.log("⚠ content was null, falling back to reasoning_content");
       textContent = msg.reasoning_content;
     }
 
+    console.log("← msg.content length:", (msg.content ?? "").length);
+    console.log("← msg.reasoning_content length:", (msg.reasoning_content ?? "").length);
+    console.log("← textContent preview:", typeof textContent === "string" ? textContent.slice(0, 200) : typeof textContent);
+
     if (typeof textContent === "string" && textContent.trim()) {
-      // Strip any stray <think>...</think> blocks
-      const cleaned = textContent
+      // Strip any <think>...</think> blocks but keep content outside them
+      let cleaned = textContent
         .replace(/<think>[\s\S]*?<\/think>/g, "")
         .trim();
+      
+      // If stripping removed everything, the actual content might be
+      // inside an unclosed <think> tag — try extracting after </think>
+      if (!cleaned && textContent.includes("</think>")) {
+        const afterThink = textContent.split("</think>").pop()?.trim() || "";
+        if (afterThink) cleaned = afterThink;
+      }
+      
+      // Last resort: if still empty, use the raw content without think tags
+      if (!cleaned) {
+        cleaned = textContent.replace(/<\/?think>/g, "").trim();
+      }
+      
       if (cleaned) {
         contentBlocks.push({ type: "output_text", text: cleaned });
       }
