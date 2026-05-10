@@ -5,4 +5,6 @@ from . import eda
 from . import visualization
 from . import modeling
 from . import preprocessing   # ← new: scalers, encoders, PCA, CV, tuning
-from . import agent_tools     # must be last (depends on all others)
+from . import report_generator  # PDF report generation
+from . import autonomous        # autonomous pipeline orchestrator
+from . import agent_tools       # must be last (depends on all others)

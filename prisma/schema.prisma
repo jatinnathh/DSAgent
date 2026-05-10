@@ -13,6 +13,7 @@ model User {
   email     String     @unique
   chats     Chat[]
   pipelines Pipeline[]
+  reports   Report[]
 }
 
 model Chat {
@@ -52,6 +53,7 @@ model Pipeline {
 
   user        User          @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
   runs        PipelineRun[]
+  reports     Report[]
 }
 
 model PipelineRun {
@@ -65,4 +67,24 @@ model PipelineRun {
   error       String?
 
   pipeline    Pipeline  @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id          String    @id @default(cuid())
+  userId      String
+  pipelineId  String?
+  title       String
+  description String?
+  filePath    String
+  fileSize    Int?
+  sessionId   String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  emailSent   Boolean   @default(false)
+  emailSentAt DateTime?
+
+  user        User      @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  pipeline    Pipeline? @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }

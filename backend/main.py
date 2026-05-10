@@ -14,7 +14,11 @@ from tools.cleaning import set_dataframe
 from tools.registry import tool_registry
 from tools.agent_tools import run_agent_analysis
 
-load_dotenv()
+from pathlib import Path
+
+# Load from backend dir first, then override/supplement from project root .env
+load_dotenv(Path(__file__).parent / ".env")
+load_dotenv(Path(__file__).parent.parent / ".env", override=False)  # root .env
 
 app = FastAPI(title="DSAgent Backend", version="1.0.0")
 
@@ -332,6 +336,101 @@ async def train_model(session_id: str, model_request: ModelTrainRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Model training failed: {str(e)}")
+
+
+# ============================================
+# AUTONOMOUS PIPELINE
+# ============================================
+
+class AutonomousPipelineRequest(BaseModel):
+    session_id: str
+    dataset_name: str = "dataset"
+
+@app.post("/autonomous-pipeline")
+async def autonomous_pipeline(request: AutonomousPipelineRequest):
+    """
+    Run the full autonomous data science pipeline.
+    Performs EDA, cleaning, visualization, feature engineering,
+    model training, evaluation, and generates a PDF report.
+    """
+    try:
+        from tools.autonomous import run_autonomous_pipeline
+
+        result = run_autonomous_pipeline(
+            session_id=request.session_id,
+            dataset_name=request.dataset_name,
+        )
+
+        # Build a summary for the frontend
+        phases_summary = {}
+        for phase_name, phase_data in result.get("phases", {}).items():
+            steps = phase_data.get("steps", [])
+            phases_summary[phase_name] = {
+                "step_count": len(steps),
+                "success_count": sum(1 for s in steps if s.get("success")),
+                "steps": [
+                    {
+                        "tool": s.get("tool", ""),
+                        "label": s.get("label", ""),
+                        "success": s.get("success", False),
+                        "time_ms": s.get("time_ms", 0),
+                        "image_base64": s.get("image_base64", ""),
+                        "result_preview": {k: v for k, v in (s.get("result", {}) or {}).items()
+                                           if not isinstance(v, (dict, list)) and k != "image_base64"}
+                                           if isinstance(s.get("result"), dict) else {},
+                    }
+                    for s in steps
+                ],
+                "llm_explanation": phase_data.get("llm_explanation", ""),
+            }
+
+        return {
+            "success": True,
+            "report_id": result.get("report_id", ""),
+            "report_path": result.get("report_path", ""),
+            "total_time_ms": result.get("total_time_ms", 0),
+            "conclusion": result.get("conclusion", ""),
+            "phases": phases_summary,
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Autonomous pipeline failed: {str(e)}")
+
+
+# ============================================
+# REPORT DOWNLOAD
+# ============================================
+
+@app.get("/reports/{report_id}/download")
+async def download_report(report_id: str):
+    """Download a generated PDF report."""
+    try:
+        reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
+        filepath = os.path.join(reports_dir, f"{report_id}.pdf")
+
+        if not os.path.exists(filepath):
+            raise HTTPException(status_code=404, detail="Report not found")
+
+        def iter_file():
+            with open(filepath, "rb") as f:
+                while chunk := f.read(8192):
+                    yield chunk
+
+        return StreamingResponse(
+            iter_file(),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="DSAgent_Report_{report_id}.pdf"',
+                "Content-Length": str(os.path.getsize(filepath)),
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn

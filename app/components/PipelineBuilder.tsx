@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
+import AutonomousPipeline from "./AutonomousPipeline";
 
 const C = {
   bg: "#0A0A0A", card: "#111111", cardHover: "#161616", input: "#1A1A1A",
@@ -21,10 +22,10 @@ const CAT_COLOR: Record<string, string> = {
 
 // ── Phase order for AI suggestions panel ──────────────────────────
 const PHASE_ORDER = [
-  { key: 1, label: "① Data Cleaning",    color: "#F59E0B" },
+  { key: 1, label: "① Data Cleaning", color: "#F59E0B" },
   { key: 2, label: "② Exploration & EDA", color: "#00D4FF" },
-  { key: 3, label: "③ Visualization",    color: "#8B5CF6" },
-  { key: 4, label: "④ Modeling & ML",    color: "#3FB950" },
+  { key: 3, label: "③ Visualization", color: "#8B5CF6" },
+  { key: 4, label: "④ Modeling & ML", color: "#3FB950" },
 ];
 
 function dlText(content: string, filename: string) {
@@ -105,34 +106,38 @@ interface RFEntry {
   timestamp: Date; durationMs?: number;
 }
 
-const _rfStore: RFEntry[] = [];
-let _rfListeners: (() => void)[] = [];
+// ── Per-instance RF store — passed as prop, never global ──────────────────
+interface RFStore {
+  entries: RFEntry[];
+  listeners: (() => void)[];
+}
+export function createRFStore(): RFStore { return { entries: [], listeners: [] }; }
 
-function addRF(e: Omit<RFEntry, "id" | "timestamp">): string {
+export function addRFTo(store: RFStore, e: Omit<RFEntry, "id" | "timestamp">): string {
   const full: RFEntry = { ...e, id: `rf-${Date.now()}-${Math.random().toString(36).slice(2)}`, timestamp: new Date() };
-  _rfStore.unshift(full);
-  if (_rfStore.length > 100) _rfStore.pop();
-  _rfListeners.forEach(f => f());
+  store.entries.unshift(full);
+  if (store.entries.length > 100) store.entries.pop();
+  store.listeners.forEach(f => f());
   return full.id;
 }
-function updateRF(id: string, patch: Partial<RFEntry>) {
-  const i = _rfStore.findIndex(e => e.id === id);
-  if (i >= 0) { Object.assign(_rfStore[i], patch); _rfListeners.forEach(f => f()); }
+export function updateRFIn(store: RFStore, id: string, patch: Partial<RFEntry>) {
+  const i = store.entries.findIndex(e => e.id === id);
+  if (i >= 0) { Object.assign(store.entries[i], patch); store.listeners.forEach(f => f()); }
 }
-function useRF() {
+function useRF(store: RFStore) {
   const [, tick] = useState(0);
   useEffect(() => {
     const fn = () => tick(v => v + 1);
-    _rfListeners.push(fn);
-    return () => { _rfListeners = _rfListeners.filter(f => f !== fn); };
-  }, []);
-  return _rfStore as readonly RFEntry[];
+    store.listeners.push(fn);
+    return () => { store.listeners = store.listeners.filter(f => f !== fn); };
+  }, [store]);
+  return store.entries as readonly RFEntry[];
 }
 
-function RequestFlowPanel({ onClose }: { onClose: () => void }) {
-  const flows = useRF();
-  const llmCount = flows.filter(f => f.type === "llm").length;
-  const toolCount = flows.filter(f => f.type === "tool").length;
+function RequestFlowPanel({ store, onClose }: { store: RFStore; onClose: () => void }) {
+  const flows = useRF(store);
+  const llmCount   = flows.filter(f => f.type === "llm").length;
+  const toolCount  = flows.filter(f => f.type === "tool").length;
   const errorCount = flows.filter(f => f.status === "error").length;
   const runningCount = flows.filter(f => f.status === "running").length;
   const ordered = [...flows].reverse();
@@ -149,36 +154,37 @@ function RequestFlowPanel({ onClose }: { onClose: () => void }) {
     if (e.status === "running") return (
       <div style={{ width: 10, height: 10, border: `2px solid ${nodeColor(e)}`, borderTopColor: "transparent", borderRadius: "50%", animation: "rfspin 0.8s linear infinite" }} />
     );
-    if (e.type === "llm") return <span style={{ fontSize: 12 }}>🤖</span>;
-    if (e.type === "tool") return <span style={{ fontSize: 12 }}>⚙️</span>;
-    return <span style={{ fontSize: 12 }}>📂</span>;
+    if (e.type === "llm") return <span style={{ fontSize: 10, fontFamily: "monospace" }}>AI</span>;
+    if (e.type === "tool") return <span style={{ fontSize: 10, fontFamily: "monospace" }}>T</span>;
+    return <span style={{ fontSize: 10, fontFamily: "monospace" }}>U</span>;
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0D0D0D" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0A0A0A" }}>
       <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <span>📡</span>
             <span style={{ fontFamily: C.head, fontSize: 13, fontWeight: 700, color: C.text }}>Request Flow</span>
-            {runningCount > 0 && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.amber, animation: "rfpulse 1.2s ease-in-out infinite" }} />}
+            {runningCount > 0 && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.amber, animation: "rfpulse 1.2s ease-in-out infinite", display: "inline-block" }} />}
           </div>
           <div style={{ display: "flex", gap: 5 }}>
-            <button onClick={() => { _rfStore.length = 0; _rfListeners.forEach(f => f()); }} style={{ fontSize: 9, padding: "3px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: "transparent", color: C.textMute, cursor: "pointer", fontFamily: C.mono }}>Clear</button>
+            <button
+              onClick={() => { store.entries.length = 0; store.listeners.forEach(f => f()); }}
+              style={{ fontSize: 9, padding: "3px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: "transparent", color: C.textMute, cursor: "pointer", fontFamily: C.mono }}
+            >Clear</button>
             <button onClick={onClose} style={{ fontSize: 9, padding: "3px 8px", borderRadius: 5, border: `1px solid ${C.border}`, background: "transparent", color: C.textMute, cursor: "pointer", fontFamily: C.mono }}>✕</button>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 10, background: `${C.violet}18`, color: C.violet, border: `1px solid ${C.violet}30`, fontFamily: C.mono }}>🤖 LLM ({llmCount})</span>
-          <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 10, background: `${C.cyan}18`, color: C.cyan, border: `1px solid ${C.cyan}30`, fontFamily: C.mono }}>⚙️ Tool ({toolCount})</span>
-          {errorCount > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 10, background: `${C.red}18`, color: C.red, border: `1px solid ${C.red}30`, fontFamily: C.mono }}>⚠ {errorCount} err</span>}
+          <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 10, background: `${C.violet}18`, color: C.violet, border: `1px solid ${C.violet}30`, fontFamily: C.mono }}>LLM ({llmCount})</span>
+          <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 10, background: `${C.cyan}18`, color: C.cyan, border: `1px solid ${C.cyan}30`, fontFamily: C.mono }}>Tool ({toolCount})</span>
+          {errorCount > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 10, background: `${C.red}18`, color: C.red, border: `1px solid ${C.red}30`, fontFamily: C.mono }}>{errorCount} err</span>}
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 12px 16px 14px", scrollbarWidth: "thin" as const }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", scrollbarWidth: "thin" as const }}>
         {flows.length === 0 && (
           <div style={{ textAlign: "center", padding: "48px 16px", color: C.textMute, fontSize: 11, fontFamily: C.mono }}>
-            <div style={{ fontSize: 28, marginBottom: 10 }}>📭</div>
             No activity yet.<br />Run a pipeline to see the flow.
           </div>
         )}
@@ -192,38 +198,25 @@ function RequestFlowPanel({ onClose }: { onClose: () => void }) {
             return (
               <div key={entry.id} style={{ display: "flex", gap: 0 }}>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 34, flexShrink: 0 }}>
-                  {idx > 0 && (
-                    <div style={{ width: 2, height: 14, background: `linear-gradient(to bottom, ${prevColor}55, ${color}55)`, flexShrink: 0 }} />
-                  )}
-                  <div style={{
-                    width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-                    background: isErr ? `${C.red}20` : entry.status === "running" ? `${color}28` : `${color}18`,
-                    border: `2px solid ${isErr ? C.red : entry.status === "running" ? color : color + "77"}`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    boxShadow: entry.status === "running" ? `0 0 12px ${color}55` : "none",
-                    transition: "all 0.3s",
-                  }}>
+                  {idx > 0 && <div style={{ width: 2, height: 14, background: `linear-gradient(to bottom, ${prevColor}55, ${color}55)`, flexShrink: 0 }} />}
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, background: isErr ? `${C.red}20` : entry.status === "running" ? `${color}28` : `${color}18`, border: `2px solid ${isErr ? C.red : entry.status === "running" ? color : color + "77"}`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: entry.status === "running" ? `0 0 12px ${color}55` : "none", transition: "all 0.3s" }}>
                     {nodeIcon(entry)}
                   </div>
                   {!isLast && <div style={{ width: 2, flex: 1, minHeight: 14, background: `${color}44` }} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0, paddingLeft: 10, paddingBottom: isLast ? 0 : 8, paddingTop: idx === 0 ? 0 : 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3, flexWrap: "wrap" as const }}>
-                    <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 4, background: `${color}18`, color, fontFamily: C.mono, fontWeight: 700, border: `1px solid ${color}30`, letterSpacing: "0.06em" }}>
-                      {tagLabel}
-                    </span>
+                    <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 4, background: `${color}18`, color, fontFamily: C.mono, fontWeight: 700, border: `1px solid ${color}30`, letterSpacing: "0.06em" }}>{tagLabel}</span>
                     {isErr && <span style={{ fontSize: 8, color: C.red, fontFamily: C.mono, fontWeight: 600 }}>FAILED</span>}
-                    {entry.status === "running" && <span style={{ fontSize: 8, color: C.amber, fontFamily: C.mono }}>RUNNING…</span>}
+                    {entry.status === "running" && <span style={{ fontSize: 8, color: C.amber, fontFamily: C.mono }}>RUNNING</span>}
                     {entry.durationMs != null && entry.status !== "running" && (
                       <span style={{ fontSize: 8, color: C.textMute, fontFamily: C.mono, marginLeft: "auto" }}>{entry.durationMs}ms</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: isErr ? C.red : C.text, lineHeight: 1.4, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-                    {entry.label}
-                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: isErr ? C.red : C.text, lineHeight: 1.4, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{entry.label}</div>
                   {entry.detail && (
                     <div style={{ fontSize: 9.5, color: isErr ? C.red + "bb" : C.textMute, fontFamily: C.mono, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-                      {isErr ? "✗ " : entry.status === "success" ? "✓ " : ""}{entry.detail}
+                      {isErr ? "x " : entry.status === "success" ? "ok " : ""}{entry.detail}
                     </div>
                   )}
                   <div style={{ fontSize: 8.5, color: C.textMute, fontFamily: C.mono, marginTop: 2 }}>
@@ -247,6 +240,8 @@ function RequestFlowPanel({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
+
+
 
 async function downloadSessionCSV(sessionId: string, filename: string) {
   const res = await fetch(`/api/agent/session/${sessionId}/download`);
@@ -868,7 +863,7 @@ function ExportModal({ steps, pipelineName, datasetLabel, onClose }: { steps: Pi
 // ══════════════════════════════════════════════════════════════════
 export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBuilderProps) {
   const isEditing = !!initialPipeline;
-  const [phase, setPhase] = useState<"upload" | "build" | "run" | "done">(isEditing ? "build" : "upload");
+  const [phase, setPhase] = useState<"upload" | "mode_select" | "build" | "autonomous" | "run" | "done">(isEditing ? "build" : "upload");
   const [sessionId, setSessionId] = useState<string | null>(initialPipeline?.sessionId ?? null);
   const [datasetMeta, setDatasetMeta] = useState(initialPipeline?.metadata?.datasetMeta ?? "");
   const [datasetLabel, setDatasetLabel] = useState(isEditing ? (initialPipeline?.name?.replace(/^Pipeline\s*[–-]\s*/i, "") || "") : "");
@@ -906,7 +901,8 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
 
   const pipelineCreatedRef = useRef(false);
   const pipelineIdRef = useRef<string | null>(initialPipeline?.id ?? null);
-  const flows = useRF();
+  const rfStore = useRef(createRFStore()).current;   // per-instance, never shared
+  const flows = useRF(rfStore);
   const activeFlows = flows.filter(f => f.status === "running").length;
   const recentErrors = flows.filter(f => f.status === "error" && Date.now() - f.timestamp.getTime() < 30000).length;
   const fileRef = useRef<HTMLInputElement>(null);
@@ -949,7 +945,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
   const handleUpload = async (file: File) => {
     if (!file.name.endsWith(".csv")) return;
     setUploading(true);
-    const rfId = addRF({ type: "upload", label: `Uploading ${file.name}`, detail: `${(file.size / 1024).toFixed(1)} KB`, status: "running" });
+    const rfId = addRFTo(rfStore, { type: "upload", label: `Uploading ${file.name}`, detail: `${(file.size / 1024).toFixed(1)} KB`, status: "running" });
     try {
       const fd = new FormData(); fd.append("file", file);
       const t0 = Date.now();
@@ -957,7 +953,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
       if (!res.ok) throw new Error("Upload failed");
       const data = await res.json();
       const meta = data.metadata;
-      updateRF(rfId, { status: "success", durationMs: Date.now() - t0, detail: `${meta.row_count?.toLocaleString()} rows × ${meta.column_count} cols` });
+      updateRFIn(rfStore, rfId, { status: "success", durationMs: Date.now() - t0, detail: `${meta.row_count?.toLocaleString()} rows × ${meta.column_count} cols` });
       setSessionId(data.session_id);
       setDatasetLabel(meta.filename);
       const nc: string[] = meta.numeric_columns || [], cc: string[] = meta.categorical_columns || [];
@@ -971,16 +967,15 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
       ].join("\n");
       setDatasetMeta(ms);
       setPipelineName(`Pipeline – ${meta.filename}`);
-      setPhase("build");
-      await fetchSuggestions([], ms, "Dataset just uploaded.");
+      setPhase("mode_select");
     } catch (e: any) {
-      updateRF(rfId, { status: "error", detail: e.message });
+      updateRFIn(rfStore, rfId, { status: "error", detail: e.message });
     } finally { setUploading(false); }
   };
 
   const fetchSuggestions = async (currentSteps: PipelineStep[], meta: string, lastResult: string) => {
     setLoadingSuggest(true); setSuggestions([]);
-    const rfId = addRF({ type: "llm", label: "LLM analysing dataset for suggestions", detail: `${currentSteps.length} steps completed`, status: "running" });
+    const rfId = addRFTo(rfStore, { type: "llm", label: "LLM analysing dataset for suggestions", detail: `${currentSteps.length} steps completed`, status: "running" });
     const t0 = Date.now();
     try {
       const res = await fetch("/api/pipelines/suggest", {
@@ -988,11 +983,11 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
         body: JSON.stringify({ completedSteps: currentSteps.map(s => ({ tool: s.tool, label: s.label })), datasetMeta: meta, lastResult })
       });
       const data = await res.json();
-      updateRF(rfId, { status: "success", durationMs: Date.now() - t0, detail: `${data.suggestions?.length ?? 0} suggestions returned` });
+      updateRFIn(rfStore, rfId, { status: "success", durationMs: Date.now() - t0, detail: `${data.suggestions?.length ?? 0} suggestions returned` });
       const existing = new Set(currentSteps.map(s => s.tool));
       setSuggestions((data.suggestions || []).filter((s: any) => !existing.has(s.tool)));
     } catch (e: any) {
-      updateRF(rfId, { status: "error", detail: e.message });
+      updateRFIn(rfStore, rfId, { status: "error", detail: e.message });
     } finally { setLoadingSuggest(false); }
   };
 
@@ -1011,7 +1006,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
   const generateSummary = async (stepId: string) => {
     const step = steps.find(s => s.id === stepId); if (!step?.result) return;
     setSteps(prev => prev.map(s => s.id === stepId ? { ...s, loadingSummary: true } : s));
-    const rfId = addRF({ type: "llm", label: `LLM explaining: ${step.label}`, status: "running" });
+    const rfId = addRFTo(rfStore, { type: "llm", label: `LLM explaining: ${step.label}`, status: "running" });
     const t0 = Date.now();
     try {
       const res = await fetch("/api/llm/run", {
@@ -1022,10 +1017,10 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
       let text = "";
       for (const item of (data?.output || [])) { for (const block of (item?.content || [])) { if (block.type === "output_text") text += block.text || ""; } }
       if (!text) text = data?.content?.[0]?.text || "";
-      updateRF(rfId, { status: "success", durationMs: Date.now() - t0 });
+      updateRFIn(rfStore, rfId, { status: "success", durationMs: Date.now() - t0 });
       setSteps(prev => prev.map(s => s.id === stepId ? { ...s, aiSummary: text, loadingSummary: false } : s));
     } catch (e: any) {
-      updateRF(rfId, { status: "error", detail: e.message });
+      updateRFIn(rfStore, rfId, { status: "error", detail: e.message });
       setSteps(prev => prev.map(s => s.id === stepId ? { ...s, loadingSummary: false } : s));
     }
   };
@@ -1071,7 +1066,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
       const step = snapshot[i];
       const args: Record<string, any> = { session_id: sessionId };
       for (const [k, v] of Object.entries(step.args)) { if (String(v).trim() !== "") args[k] = v; }
-      const rfId = addRF({ type: "tool", label: `Backend tool: ${step.label}`, detail: `${step.tool} (${i + 1}/${snapshot.length})`, status: "running" });
+      const rfId = addRFTo(rfStore, { type: "tool", label: `Backend tool: ${step.label}`, detail: `${step.tool} (${i + 1}/${snapshot.length})`, status: "running" });
       const t0 = Date.now();
       try {
         const res = await fetch("/api/agent/tools", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tool_name: step.tool, arguments: args }) });
@@ -1080,13 +1075,13 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
         const img64 = result?.output?.image_base64 || result?.output?.chart_base64;
         const clean = result.output ? Object.fromEntries(Object.entries(result.output).filter(([k]) => k !== "image_base64" && k !== "chart_base64")) : null;
         const errMsg = result.success ? undefined : (result.error || result.details || "Tool failed");
-        updateRF(rfId, { status: result.success ? "success" : "error", durationMs: dur, detail: result.success ? `Done in ${dur}ms` : `✗ ${errMsg?.slice(0, 80)}` });
+        updateRFIn(rfStore, rfId, { status: result.success ? "success" : "error", durationMs: dur, detail: result.success ? `Done in ${dur}ms` : `x ${errMsg?.slice(0, 80)}` });
         setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, status: result.success ? "done" : "error", result: clean, imageBase64: img64 ? (img64.startsWith("data:") ? img64 : `data:image/png;base64,${img64}`) : undefined, executionMs: result.execution_time_ms, errorMsg: errMsg } : s));
         if (result.success) setExpandedResult(step.id);
         runResults.push({ tool: step.tool, success: result.success, executionMs: result.execution_time_ms, errorMsg: errMsg });
         await new Promise(r => setTimeout(r, 200));
       } catch (err: any) {
-        updateRF(rfId, { status: "error", durationMs: Date.now() - t0, detail: err.message });
+        updateRFIn(rfStore, rfId, { status: "error", durationMs: Date.now() - t0, detail: err.message });
         setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, status: "error", errorMsg: err.message } : s));
         runResults.push({ tool: step.tool, success: false, errorMsg: err.message });
       }
@@ -1147,11 +1142,114 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
         <AnimatePresence>
           {showFlows && (
             <motion.div initial={{ width: 0 }} animate={{ width: 300 }} exit={{ width: 0 }} transition={{ type: "spring", stiffness: 340, damping: 34 }} style={{ flexShrink: 0, overflow: "hidden", height: "100%", borderLeft: `1px solid ${C.border}` }}>
-              <div style={{ width: 300, height: "100%" }}><RequestFlowPanel onClose={() => setShowFlows(false)} /></div>
+              <div style={{ width: 300, height: "100%" }}><RequestFlowPanel store={rfStore} onClose={() => setShowFlows(false)} /></div>
             </motion.div>
           )}
         </AnimatePresence>
         <style>{`@keyframes rfspin{to{transform:rotate(360deg)}}@keyframes rfpulse{0%,100%{opacity:1}50%{opacity:0.2}}@keyframes pls{0%,100%{opacity:1}50%{opacity:0.2}}@keyframes dot{0%,80%,100%{transform:scale(0.6);opacity:0.3}40%{transform:scale(1);opacity:1}}`}</style>
+      </div>
+    );
+  }
+
+  // ─── MODE SELECT PHASE ─────────────────────────────────────────────────
+  if (phase === "mode_select") {
+    return (
+      <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28, padding: 32 }}>
+          <div style={{ textAlign: "center", marginBottom: 8 }}>
+            <h2 style={{ fontFamily: C.head, fontSize: "1.5rem", fontWeight: 700, color: C.text, marginBottom: 8, letterSpacing: "-0.02em" }}>
+              Choose Build Mode
+            </h2>
+            <p style={{ fontSize: 12.5, color: C.textSub, maxWidth: 480, lineHeight: 1.65, margin: "0 auto" }}>
+              <span style={{ fontWeight: 600, color: C.cyan }}>{datasetLabel}</span> is ready.
+              Pick how you want to build your pipeline.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 640, width: "100%" }}>
+            {/* Autonomous */}
+            <motion.button
+              whileHover={{ y: -4, scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              onClick={() => setPhase("autonomous")}
+              style={{
+                padding: "28px 22px", borderRadius: 16, cursor: "pointer", textAlign: "left",
+                background: `linear-gradient(145deg, ${C.card}, #0D0D16)`,
+                border: `1.5px solid ${C.violet}40`,
+                boxShadow: `0 8px 32px rgba(139,92,246,0.12), inset 0 1px 0 ${C.violet}20`,
+                display: "flex", flexDirection: "column", gap: 10, position: "relative", overflow: "hidden",
+              }}
+            >
+              <div style={{ position: "absolute", top: 0, right: 0, width: 100, height: 100, borderRadius: "0 16px 0 100%", background: `${C.violet}08` }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, zIndex: 1 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 11, background: `${C.violet}18`, border: `1px solid ${C.violet}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🤖</div>
+                <div>
+                  <div style={{ fontFamily: C.head, fontSize: 15, fontWeight: 700, color: C.text }}>Autonomous</div>
+                  <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: `${C.violet}25`, color: C.violet, fontFamily: C.mono, fontWeight: 700 }}>AI-DRIVEN</span>
+                </div>
+              </div>
+              <p style={{ fontSize: 11, color: C.textSub, lineHeight: 1.65, margin: 0, zIndex: 1 }}>
+                DSAgent runs the entire pipeline automatically — EDA, cleaning, visualization, feature engineering,
+                model training, evaluation — and generates a detailed PDF report.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4, marginTop: 4, zIndex: 1 }}>
+                {["EDA", "Clean", "Visualize", "Features", "Model", "Evaluate", "Report"].map(tag => (
+                  <span key={tag} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: `${C.violet}12`, color: C.violet, fontFamily: C.mono, border: `1px solid ${C.violet}20` }}>{tag}</span>
+                ))}
+              </div>
+            </motion.button>
+
+            {/* Guided */}
+            <motion.button
+              whileHover={{ y: -4, scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              onClick={async () => { setPhase("build"); await fetchSuggestions([], datasetMeta, "Dataset just uploaded."); }}
+              style={{
+                padding: "28px 22px", borderRadius: 16, cursor: "pointer", textAlign: "left",
+                background: `linear-gradient(145deg, ${C.card}, #0D100D)`,
+                border: `1.5px solid ${C.cyan}40`,
+                boxShadow: `0 8px 32px rgba(0,212,255,0.08), inset 0 1px 0 ${C.cyan}20`,
+                display: "flex", flexDirection: "column", gap: 10, position: "relative", overflow: "hidden",
+              }}
+            >
+              <div style={{ position: "absolute", top: 0, right: 0, width: 100, height: 100, borderRadius: "0 16px 0 100%", background: `${C.cyan}08` }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, zIndex: 1 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 11, background: `${C.cyan}18`, border: `1px solid ${C.cyan}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🔧</div>
+                <div>
+                  <div style={{ fontFamily: C.head, fontSize: 15, fontWeight: 700, color: C.text }}>Guided</div>
+                  <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: `${C.cyan}25`, color: C.cyan, fontFamily: C.mono, fontWeight: 700 }}>STEP-BY-STEP</span>
+                </div>
+              </div>
+              <p style={{ fontSize: 11, color: C.textSub, lineHeight: 1.65, margin: 0, zIndex: 1 }}>
+                Manually select and configure each pipeline step with AI-powered suggestions.
+                Full control over every tool, argument, and execution order.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4, marginTop: 4, zIndex: 1 }}>
+                {["AI Suggest", "Drag & Drop", "Configure", "Run Steps", "Templates"].map(tag => (
+                  <span key={tag} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: `${C.cyan}12`, color: C.cyan, fontFamily: C.mono, border: `1px solid ${C.cyan}20` }}>{tag}</span>
+                ))}
+              </div>
+            </motion.button>
+          </div>
+        </div>
+        <style>{`@keyframes rfspin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
+
+  // ─── AUTONOMOUS PHASE ─────────────────────────────────────────────────
+  if (phase === "autonomous") {
+    return (
+      <div style={{ height: "100%", overflow: "hidden" }}>
+        <AutonomousPipeline
+          sessionId={sessionId!}
+          datasetName={datasetLabel || "dataset"}
+          onBack={() => setPhase("mode_select")}
+          onComplete={(reportId) => {
+            // Could navigate to reports tab or show success
+            console.log("Autonomous pipeline complete. Report:", reportId);
+          }}
+        />
       </div>
     );
   }
@@ -1167,7 +1265,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
             {renamingPipeline
               ? <input ref={renameRef} value={pipelineName} onChange={e => setPipelineName(e.target.value)} onBlur={() => { if (!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); }} onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") { if (!pipelineName.trim()) setPipelineName("My Pipeline"); setRenamingPipeline(false); } }} style={{ background: C.input, border: `1px solid ${C.cyan}55`, borderRadius: 6, outline: "none", color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, padding: "3px 8px", flex: 1, minWidth: 80, maxWidth: 220, boxShadow: `0 0 0 2px ${C.cyan}20` }} />
               : <span onDoubleClick={() => setRenamingPipeline(true)} title="Double-click to rename" style={{ color: C.text, fontFamily: C.head, fontSize: 13, fontWeight: 600, cursor: "text", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>{pipelineName}</span>}
-            <button onClick={() => setRenamingPipeline(v => !v)} title="Rename" style={{ background: "none", border: "none", cursor: "pointer", color: renamingPipeline ? C.cyan : C.textMute, fontSize: 11, padding: "2px 4px", borderRadius: 4, flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = C.cyan)} onMouseLeave={e => (e.currentTarget.style.color = renamingPipeline ? C.cyan : C.textMute)}>✏️</button>
+            <button onClick={() => setRenamingPipeline(v => !v)} title="Rename" style={{ background: "none", border: "none", cursor: "pointer", color: renamingPipeline ? C.cyan : C.textMute, fontSize: 12, padding: "2px 4px", borderRadius: 4, flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = C.cyan)} onMouseLeave={e => (e.currentTarget.style.color = renamingPipeline ? C.cyan : C.textMute)}>Edit name</button>
           </div>
           {datasetLabel
             ? <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: `${C.cyan}15`, color: C.cyan, border: `1px solid ${C.cyan}30`, fontFamily: C.mono, flexShrink: 0 }}>{datasetLabel}</span>
@@ -1379,7 +1477,7 @@ export default function PipelineBuilder({ onSaved, initialPipeline }: PipelineBu
         {showFlows && (
           <motion.div key="flow-panel" initial={{ width: 0 }} animate={{ width: 300 }} exit={{ width: 0 }} transition={{ type: "spring", stiffness: 340, damping: 34 }} style={{ flexShrink: 0, overflow: "hidden", height: "100%", borderLeft: `1px solid ${C.border}` }}>
             <div style={{ width: 300, height: "100%" }}>
-              <RequestFlowPanel onClose={() => setShowFlows(false)} />
+              <RequestFlowPanel store={rfStore} onClose={() => setShowFlows(false)} />
             </div>
           </motion.div>
         )}
