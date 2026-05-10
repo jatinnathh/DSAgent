@@ -742,7 +742,10 @@ export default function Home() {
 
   /* ── nav scroll state ── */
   const [navScrolled, setNavScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => { const fn = () => setNavScrolled(window.scrollY > 70); window.addEventListener("scroll", fn); return () => window.removeEventListener("scroll", fn); }, []);
+  // Close mobile menu on route changes / scroll
+  useEffect(() => { if (mobileMenuOpen) setMobileMenuOpen(false); }, [navScrolled]);
 
   return (
     <>
@@ -761,6 +764,31 @@ export default function Home() {
         @keyframes spin-slow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(255,255,255,0.35)}70%{box-shadow:0 0 0 8px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
         @keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+        /* ── Responsive nav ── */
+        .nav-links{display:flex;gap:4px}
+        .nav-hamburger{display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:100px;border:1px solid rgba(255,255,255,0.1);background:transparent;cursor:pointer;flex-direction:column;gap:4px;padding:0}
+        .nav-hamburger span{display:block;width:16px;height:1.5px;background:rgba(255,255,255,0.7);border-radius:2px;transition:transform 0.25s,opacity 0.25s}
+        .nav-hamburger.open span:nth-child(1){transform:translateY(5.5px) rotate(45deg)}
+        .nav-hamburger.open span:nth-child(2){opacity:0}
+        .nav-hamburger.open span:nth-child(3){transform:translateY(-5.5px) rotate(-45deg)}
+        .nav-mobile-menu{display:none;position:fixed;top:72px;left:50%;transform:translateX(-50%);width:calc(100vw - 32px);max-width:440px;z-index:999;border-radius:20px;background:rgba(8,8,8,0.96);border:1px solid rgba(255,255,255,0.09);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:12px;flex-direction:column;gap:4px}
+        .nav-mobile-menu.open{display:flex}
+        .nav-mobile-link{font-size:14px;color:rgba(255,255,255,0.55);text-decoration:none;padding:12px 16px;border-radius:12px;transition:color 0.2s,background 0.2s;display:block}
+        .nav-mobile-link:hover,.nav-mobile-link:active{color:#fff;background:rgba(255,255,255,0.07)}
+        .nav-mobile-divider{height:1px;background:rgba(255,255,255,0.06);margin:4px 0}
+        .nav-mobile-dash{display:block;text-align:center;font-size:14px;font-weight:600;color:#080808;background:#fff;padding:12px 16px;border-radius:12px;text-decoration:none;transition:opacity 0.2s}
+        .nav-mobile-dash:hover{opacity:0.85}
+        @media(max-width:560px){
+          .nav-links{display:none!important}
+          .nav-hamburger{display:flex!important}
+          .nav-dashboard-text::after{content:''}
+        }
+        @media(max-width:480px){
+          html{cursor:auto}
+        }
+        @media(hover:none){
+          html{cursor:auto}
+        }
       `}</style>
 
       {/* ═════ INTRO OVERLAY ═════ */}
@@ -816,32 +844,85 @@ export default function Home() {
           animate={introComplete ? { y: 0, opacity: 1 } : { y: -70, opacity: 0 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
           style={{
-            position: "fixed", top: 14, left: "50%", transform: "translateX(-50%)", zIndex: 1000,
-            width: "calc(100% - 40px)", maxWidth: 880, display: "flex", alignItems: "center",
-            justifyContent: "space-between", padding: "11px 18px",
-            background: navScrolled ? "rgba(8,8,8,0.88)" : "rgba(255,255,255,0.03)",
-            backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-            border: `1px solid ${navScrolled ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.06)"}`,
-            borderRadius: 100, transition: "background 0.4s, border-color 0.4s",
+            position: "fixed",
+            top: 19,
+            right: 34, 
+            zIndex: 1000,
+
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+
+            padding: "10px 14px",
+
+            width: "fit-content",
+            maxWidth: "92vw",
+
+            background: navScrolled
+              ? "rgba(8,8,8,0.92)"
+              : "rgba(255,255,255,0.03)",
+
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+
+            border: `1px solid ${navScrolled
+                ? "rgba(255,255,255,0.09)"
+                : "rgba(255,255,255,0.06)"
+              }`,
+
+            borderRadius: 100,
+            transition: "background 0.4s, border-color 0.4s",
           }}
         >
-          <div style={{ fontFamily: "var(--serif)", fontSize: 18, color: "#fff", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Logo */}
+          <div style={{ fontFamily: "var(--serif)", fontSize: 18, color: "#fff", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "linear-gradient(135deg, #4488ff, #88aaff)", boxShadow: "0 0 8px rgba(68,136,255,0.4)" }} />
             DSAgent
           </div>
-          <div style={{ display: "flex", gap: 4 }}>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.08)", margin: "0 6px", flexShrink: 0 }} />
+
+          {/* Desktop nav links */}
+          <div className="nav-links" style={{ display: "flex", gap: 2 }}>
             {["Pipeline", "Features", "Demo"].map(label => (
-              <a key={label} href={`#${label.toLowerCase()}`} data-hover style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", textDecoration: "none", padding: "6px 13px", borderRadius: 100, letterSpacing: "0.01em", transition: "color 0.2s, background 0.2s" }}
+              <a key={label} href={`#${label.toLowerCase()}`} data-hover style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", textDecoration: "none", padding: "6px 12px", borderRadius: 100, letterSpacing: "0.01em", transition: "color 0.2s, background 0.2s", whiteSpace: "nowrap" }}
                 onMouseEnter={e => { (e.currentTarget).style.color = "#fff"; (e.currentTarget).style.background = "rgba(255,255,255,0.07)"; }}
                 onMouseLeave={e => { (e.currentTarget).style.color = "rgba(255,255,255,0.4)"; (e.currentTarget).style.background = "transparent"; }}
               >{label}</a>
             ))}
           </div>
-          <Link href="/dashboard" data-hover style={{ fontSize: 12, fontWeight: 600, color: "#080808", background: "#fff", padding: "8px 18px", borderRadius: 100, textDecoration: "none", letterSpacing: "-0.01em", transition: "opacity 0.2s" }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
-            onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-          >Dashboard →</Link>
+
+          {/* Divider */}
+          <div className="nav-links" style={{ width: 1, height: 18, background: "rgba(255,255,255,0.08)", margin: "0 6px", flexShrink: 0 }} />
+
+          {/* Right side: Dashboard btn always visible + hamburger on small screens */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <Link href="/dashboard" data-hover style={{ fontSize: 12, fontWeight: 600, color: "#080808", background: "#fff", padding: "8px 16px", borderRadius: 100, textDecoration: "none", letterSpacing: "-0.01em", transition: "opacity 0.2s", whiteSpace: "nowrap" }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+            >Dashboard →</Link>
+            {/* Hamburger — shown only via CSS on small screens */}
+            <button
+              className={`nav-hamburger${mobileMenuOpen ? " open" : ""}`}
+              aria-label="Toggle menu"
+              onClick={() => setMobileMenuOpen(o => !o)}
+            >
+              <span /><span /><span />
+            </button>
+          </div>
         </motion.nav>
+
+        {/* ────────────────────── MOBILE MENU ────────────────────── */}
+        <div className={`nav-mobile-menu${mobileMenuOpen ? " open" : ""}`} style={{ zIndex: 999 }}>
+          {["Pipeline", "Features", "Demo"].map(label => (
+            <a key={label} href={`#${label.toLowerCase()}`} className="nav-mobile-link"
+              onClick={() => setMobileMenuOpen(false)}
+            >{label}</a>
+          ))}
+          <div className="nav-mobile-divider" />
+          <Link href="/dashboard" className="nav-mobile-dash" onClick={() => setMobileMenuOpen(false)}>Dashboard →</Link>
+        </div>
 
         {/* ────────────────────── HERO ────────────────────── */}
         <section ref={heroRef} style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "120px 24px 80px", position: "relative", overflow: "hidden" }}>

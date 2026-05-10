@@ -340,13 +340,13 @@ export default function AutonomousPipeline({ sessionId, datasetName, onComplete,
               <button
                 onClick={startPipeline}
                 style={{
-                  width: "100%", padding: "13px 0",
+                  width: "20%", padding: "13px 0",
                   borderRadius: 10,
                   border: "1px solid rgba(255,255,255,0.18)",
-                  background: "linear-gradient(135deg, rgba(139,92,246,0.22) 0%, rgba(0,212,255,0.12) 50%, rgba(63,185,80,0.14) 100%)",
+                  background: "rgba(122, 97, 97, 0.1)",
                   backdropFilter: "blur(20px) saturate(180%)",
                   WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                  boxShadow: "0 4px 24px rgba(139,92,246,0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+                  boxShadow: "0 4px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
                   color: "#F0F0F0",
                   fontFamily: MONO,
                   fontSize: 13,
@@ -359,11 +359,11 @@ export default function AutonomousPipeline({ sessionId, datasetName, onComplete,
                   overflow: "hidden",
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 32px rgba(139,92,246,0.45), inset 0 1px 0 rgba(255,255,255,0.18)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 32px rgba(54, 53, 53, 0.45), inset 0 1px 0 rgba(255,255,255,0.18)";
                   (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.3)";
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 24px rgba(139,92,246,0.25), inset 0 1px 0 rgba(255,255,255,0.12)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 24px rgba(221, 221, 221, 0.25), inset 0 1px 0 rgba(255,255,255,0.12)";
                   (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.18)";
                 }}
               >
