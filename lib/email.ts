@@ -29,7 +29,7 @@ export async function sendReportEmail({
   const html = `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #fafafa; border-radius: 12px; overflow: hidden;">
       <div style="background: linear-gradient(135deg, #1A1A2E 0%, #0A0A0A 100%); padding: 32px 24px; text-align: center;">
-        <h1 style="color: #00D4FF; margin: 0 0 4px; font-size: 24px; font-weight: 700;">DSAgent</h1>
+        <h1 style="color: #ffffffff; margin: 0 0 4px; font-size: 24px; font-weight: 700;">DSAgent</h1>
         <p style="color: #8C8C8C; margin: 0; font-size: 13px;">Autonomous Pipeline Report</p>
       </div>
       <div style="padding: 28px 24px;">
@@ -57,7 +57,7 @@ export async function sendReportEmail({
   const mailOptions: nodemailer.SendMailOptions = {
     from: `"DSAgent" <${process.env.SMTP_USER}>`,
     to,
-    subject: `📊 ${reportTitle} — DSAgent Pipeline Report`,
+    subject: ` ${reportTitle} — DSAgent Pipeline Report`,
     html,
     attachments: [],
   };

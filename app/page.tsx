@@ -187,7 +187,7 @@ function IntroOverlay({ onComplete }: { onComplete: () => void }) {
               color: "rgba(255,255,255,0.3)",
             }}>
               <span>INITIALIZING</span>
-              <span>{progress.toString().padStart(3, "0")}%</span>
+              <span>{progress.toString().padStart(3)}%</span>
             </div>
           </motion.div>
         </div>

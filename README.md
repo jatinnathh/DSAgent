@@ -14,6 +14,9 @@
 <img src="public/landing.png" alt="landing" width="900"/>
 <img src="public/signup.png" alt="dashboard" width="900"/>
 <img src="public/dashboard.png" alt="chat" width="900"/>
+<img src="public/auto1.png" alt="chat" width="900"/>
+<img src="public/mail1.png" alt="chat" width="900"/>
+<img src="public/mail4.png" alt="chat" width="900"/>
 <h3 align="center">Under work  view at <a href="https://jatin-dsagent.vercel.app/">jatin-dsagent.vercel.app</a></h3>
 <p align="center">
   <img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExc3c0b2pibW51cHk5cHhtZjlsYnJ4eDdxb2M3ZWE3bG00Z3U4ZjI0cCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oKIPnAiaMCws8nOsE/giphy.gif" width="600"/>
@@ -30,6 +33,8 @@
 - [Implemented Features](#implemented-features)
   - [AI Analyst Chat](#ai-analyst-chat)
   - [Pipeline Builder](#pipeline-builder)
+  - [Autonomous Pipeline](#autonomous-pipeline)
+  - [PDF Report Generation & Email Delivery](#pdf-report-generation--email-delivery)
   - [Landing Page](#landing-page)
   - [Dashboard](#dashboard)
 - [Backend — Tools & ML](#backend--tools--ml)
@@ -53,42 +58,48 @@ DSAgent is an **AI-powered data science platform** that automates the full ML wo
 **Key differentiators:**
 - **Real tool execution** — The AI doesn't generate code snippets; it calls registered Python tools with actual pandas/sklearn operations.
 - **ReAct loop** — Reasoning + Acting pattern: the agent thinks, acts, observes results, and iterates.
+- **Autonomous Pipeline** — One-click, fully automated data science run (EDA → Cleaning → Visualization → Feature Engineering → Modeling → Evaluation) with a live terminal UI.
+- **PDF Reports & Email** — Every autonomous run generates a downloadable PDF report that can be emailed directly to the user via SMTP.
 - **Dark-themed visualizations** — All charts are generated server-side with matplotlib in a consistent dark aesthetic.
 - **Visual pipeline builder** — Drag-and-drop data science workflows with AI-suggested steps.
-- **Full persistence** — Every chat, pipeline, and run is stored in PostgreSQL via Prisma.
+- **Full persistence** — Every chat, pipeline, run, and report is stored in PostgreSQL via Prisma.
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     FRONTEND (Next.js 16)               │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐  │
-│  │ Landing  │  │  Dashboard   │  │   Auth (Clerk)    │  │
-│  │ (3D/R3F) │  │  Overview    │  │   Sign In/Up      │  │
-│  └──────────┘  ├──────────────┤  └───────────────────┘  │
-│                │  Agent Chat  │                          │
-│                │  Pipeline    │   API Routes:            │
-│                │  Builder     │   /api/llm/run           │
-│                └──────────────┘   /api/chats             │
-│                                   /api/pipelines         │
-│                                   /api/pipelines/suggest │
-├─────────────────────────────────────────────────────────┤
-│                 BACKEND (FastAPI / Python)               │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │  Tool Registry (30+ registered tools)             │  │
-│  │  ┌──────────┐ ┌─────┐ ┌──────┐ ┌──────────────┐  │  │
-│  │  │ Cleaning │ │ EDA │ │ Viz  │ │   Modeling   │  │  │
-│  │  └──────────┘ └─────┘ └──────┘ └──────────────┘  │  │
-│  │  ┌───────────────┐  ┌──────────────────────────┐  │  │
-│  │  │ Preprocessing │  │  Agent (ReAct + LLM)    │  │  │
-│  │  └───────────────┘  └──────────────────────────┘  │  │
-│  └────────────────────────────────────────────────────┘  │
-├─────────────────────────────────────────────────────────┤
-│  DATABASE: PostgreSQL (Prisma ORM)                      │
-│  Models: User, Chat, Message, Pipeline, PipelineRun     │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                       FRONTEND (Next.js 16)                      │
+│  ┌──────────┐  ┌──────────────────────────────┐  ┌───────────┐  │
+│  │ Landing  │  │          Dashboard            │  │   Auth    │  │
+│  │ (3D/R3F) │  │  Overview · Chat · Pipelines  │  │  (Clerk)  │  │
+│  └──────────┘  └──────────────────────────────┘  └───────────┘  │
+│                                                                  │
+│   Components: AgentChat · PipelineBuilder · AutonomousPipeline   │
+│                                                                  │
+│   API Routes:                                                    │
+│     /api/llm/run          /api/chats           /api/pipelines    │
+│     /api/pipelines/autonomous                 /api/reports       │
+│     /api/pipelines/suggest   /api/reports/[id]/email             │
+├──────────────────────────────────────────────────────────────────┤
+│                    BACKEND (FastAPI / Python)                     │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │  Tool Registry (30+ registered tools)                   │    │
+│  │  ┌──────────┐ ┌─────┐ ┌──────┐ ┌──────────────────────┐│    │
+│  │  │ Cleaning │ │ EDA │ │ Viz  │ │ Modeling / AutoML    ││    │
+│  │  └──────────┘ └─────┘ └──────┘ └──────────────────────┘│    │
+│  │  ┌───────────────┐  ┌──────────────────────────────────┐│    │
+│  │  │ Preprocessing │  │  Autonomous Pipeline + PDF Gen   ││    │
+│  │  └───────────────┘  └──────────────────────────────────┘│    │
+│  │  ┌──────────────────────────────────────────────────────┐│    │
+│  │  │            Agent (ReAct + LLM)                      ││    │
+│  │  └──────────────────────────────────────────────────────┘│    │
+│  └──────────────────────────────────────────────────────────┘    │
+├──────────────────────────────────────────────────────────────────┤
+│  DATABASE: PostgreSQL (Prisma ORM)                               │
+│  Models: User, Chat, Message, Pipeline, PipelineRun, Report      │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -136,6 +147,58 @@ A visual drag-and-drop interface for composing reusable data science workflows.
 - Edit existing pipelines — open, modify, re-save, re-run
 - Delete pipelines — clean up with confirmation dialog
 - Step result preview — see tool output and charts inline after each run
+
+---
+
+### Autonomous Pipeline
+
+A one-click, **fully automated end-to-end data science run** driven entirely by the LLM — no manual step configuration needed.
+
+**How it works:**
+1. **Upload CSV** — Session created as usual.
+2. **Click RUN PIPELINE** — A single API call to `/api/pipelines/autonomous` triggers the backend.
+3. **Backend orchestrates 6 phases automatically** — LLM plans each phase, tool registry executes:
+   - `eda` → `cleaning` → `visualization` → `feature_engineering` → `modeling` → `evaluation`
+4. **Live terminal UI** — A macOS-style terminal window streams real-time phase commands and per-step pass/fail results with timing.
+5. **Request Flow sidebar** — Collapsible animated sidebar showing every LLM call and tool execution as a live timeline with counts and durations.
+6. **Completion summary** — After all phases finish, a stats panel shows total phases, steps, successes, and elapsed time.
+7. **PDF report auto-generated** — A report is produced server-side and persisted to the `Report` database model.
+
+**Capabilities:**
+- 6-phase auto-orchestration with no user input required
+- Live terminal with macOS chrome (traffic-light dots, blinking cursor)
+- Per-step `[index/total]` progress with ✓/✗ success indicators and millisecond timing
+- Phase-level metric summary lines (e.g. best model name + score, accuracy, R², chart count)
+- Elapsed live timer while running (updates every 100ms)
+- Request Flow sidebar — animated node timeline distinguishing **LLM**, **Tool**, and **Upload** event types
+- Retry button on failure
+- Result panel: Download PDF + Email Report buttons once complete
+
+---
+
+### PDF Report Generation & Email Delivery
+
+Every autonomous pipeline run produces a **PDF report** and offers one-click **email delivery**.
+
+**Report generation:**
+- Backend generates a structured PDF (report ID, path, file size) at the end of the autonomous pipeline.
+- Report metadata (report ID, phases, total time, conclusion) is persisted to the `Report` model in PostgreSQL.
+- Reports are linked to the user and optionally to a pipeline session.
+
+**Email delivery (`lib/email.ts`):**
+- Uses **Nodemailer** with SMTP (default: Gmail on port 465, configurable via `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS`).
+- Sends a styled branded HTML email with a dark DSAgent header, report title, pipeline summary text, and generation timestamp.
+- **PDF attached** if the file exists on disk (`application/pdf` attachment).
+- Triggered via **EMAIL REPORT** button in the Autonomous Pipeline UI → calls `/api/reports/[id]/email`.
+- Email sent status and timestamp tracked in the database (`emailSent`, `emailSentAt` fields).
+
+**API surface:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/reports` | List all reports for the authenticated user |
+| `GET` | `/api/reports/[id]` | Get a specific report record |
+| `POST` | `/api/reports/[id]/email` | Send the report PDF to the user's email |
+| `GET` | `/api/reports/[id]/download` | Download the PDF via the backend |
 
 ---
 
@@ -332,6 +395,8 @@ The core agent (`DSAgent`) implements a **ReAct (Reasoning + Acting)** loop:
 | `POST` | `/upload` | Upload CSV, extract metadata, create session |
 | `POST` | `/analyze` | Run full AI agent analysis on a session |
 | `POST` | `/execute-tool` | Execute a specific tool by name with arguments |
+| `POST` | `/autonomous-pipeline` | Run the full 6-phase autonomous pipeline on a session |
+| `GET` | `/reports/{id}/download` | Download a generated PDF report |
 | `GET` | `/session/{id}/overview` | Dataset overview for a session |
 | `GET` | `/session/{id}/metadata` | Metadata for restoring chat context |
 | `GET` | `/session/{id}/download` | Download current (modified) CSV |
@@ -348,9 +413,14 @@ The core agent (`DSAgent`) implements a **ReAct (Reasoning + Acting)** loop:
 | `GET / PUT / DELETE` | `/api/chats/[chatId]` | Manage a specific chat |
 | `GET / POST` | `/api/pipelines` | List or create pipelines |
 | `GET / PUT / DELETE` | `/api/pipelines/[pipelineId]` | Manage a specific pipeline |
-| `POST` | `/api/pipelines/[pipelineId]/run` | Execute a pipeline run |
+| `POST` | `/api/pipelines/[pipelineId]/run` | Execute a manual pipeline run |
 | `GET` | `/api/pipelines/[pipelineId]/run` | Get run history |
 | `POST` | `/api/pipelines/suggest` | AI-powered pipeline step suggestions |
+| `POST` | `/api/pipelines/autonomous` | Trigger autonomous pipeline + persist report to DB |
+| `GET` | `/api/reports` | List all reports for the authenticated user |
+| `GET / DELETE` | `/api/reports/[reportId]` | Get or delete a specific report |
+| `POST` | `/api/reports/[reportId]/email` | Email the PDF report to the user |
+| `GET` | `/api/reports/[reportId]/download` | Proxy PDF download from backend |
 
 ---
 
@@ -410,51 +480,61 @@ npm run dev
 ```
 dsagent/
 ├── app/
-│   ├── page.tsx                    # Landing page (3D robot, animations)
-│   ├── layout.tsx                  # Root layout with Clerk provider
-│   ├── globals.css                 # Global styles
+│   ├── page.tsx                         # Landing page (3D robot, animations)
+│   ├── layout.tsx                        # Root layout with Clerk provider
+│   ├── globals.css                       # Global styles
 │   ├── dashboard/
-│   │   ├── page.tsx                # Dashboard server component
-│   │   └── DashboardClient.tsx     # Dashboard client (overview, agent, pipelines)
+│   │   ├── page.tsx                      # Dashboard server component
+│   │   └── DashboardClient.tsx           # Dashboard client (overview, agent, pipelines)
 │   ├── components/
-│   │   ├── AgentChat.tsx           # Chat UI with upload, messages, tool results
-│   │   ├── PipelineBuilder.tsx     # Visual pipeline builder with AI suggestions
-│   │   ├── DatasetUpload.tsx       # CSV upload component
-│   │   ├── AgentAnalysis.tsx       # Analysis display component
-│   │   └── BackButton.tsx          # Navigation back button
+│   │   ├── AgentChat.tsx                 # Chat UI with upload, messages, tool results
+│   │   ├── PipelineBuilder.tsx           # Visual pipeline builder with AI suggestions
+│   │   ├── AutonomousPipeline.tsx        # Autonomous pipeline terminal UI + Request Flow
+│   │   ├── DatasetUpload.tsx             # CSV upload component
+│   │   ├── AgentAnalysis.tsx             # Analysis display component
+│   │   ├── StarfieldBg.tsx               # Shared animated starfield background
+│   │   └── BackButton.tsx                # Navigation back button
 │   ├── api/
-│   │   ├── llm/run/route.ts       # LLM proxy to Anthropic
-│   │   ├── chats/route.ts         # Chat CRUD
+│   │   ├── llm/run/route.ts              # LLM proxy to Anthropic
+│   │   ├── chats/route.ts                # Chat CRUD
 │   │   ├── chats/[chatId]/route.ts
-│   │   ├── pipelines/route.ts     # Pipeline CRUD
+│   │   ├── pipelines/route.ts            # Pipeline CRUD
 │   │   ├── pipelines/[pipelineId]/route.ts
 │   │   ├── pipelines/[pipelineId]/run/route.ts
-│   │   └── pipelines/suggest/route.ts
-│   ├── sign-in/                    # Clerk sign-in page
-│   └── sign-up/                    # Clerk sign-up page
+│   │   ├── pipelines/suggest/route.ts    # AI step suggestions
+│   │   ├── pipelines/autonomous/route.ts # Autonomous pipeline trigger + DB persist
+│   │   ├── reports/route.ts              # List user reports
+│   │   └── reports/[reportId]/
+│   │       ├── route.ts                  # Get / delete report
+│   │       ├── email/route.ts            # Send PDF report via email (Nodemailer)
+│   │       └── download/route.ts         # Proxy PDF download from backend
+│   ├── sign-in/                          # Clerk sign-in page
+│   └── sign-up/                          # Clerk sign-up page
 ├── backend/
-│   ├── main.py                     # FastAPI app and all endpoints
+│   ├── main.py                           # FastAPI app + autonomous-pipeline endpoint
 │   ├── core/
-│   │   ├── agent.py                # DSAgent ReAct loop
-│   │   ├── metadata.py             # CSV metadata extraction
-│   │   └── schema.py               # Pydantic models
+│   │   ├── agent.py                      # DSAgent ReAct loop
+│   │   ├── metadata.py                   # CSV metadata extraction
+│   │   └── schema.py                     # Pydantic models
 │   ├── tools/
-│   │   ├── registry.py             # Central tool registry
-│   │   ├── cleaning.py             # Data cleaning tools (5)
-│   │   ├── eda.py                  # Exploratory data analysis tools (5)
-│   │   ├── visualization.py        # Chart generation tools (5)
-│   │   ├── modeling.py             # ML modeling tools (6)
-│   │   ├── preprocessing.py        # Preprocessing and feature engineering (12)
-│   │   └── agent_tools.py          # Agent orchestration tool
-│   ├── sessions/                   # Persisted CSV sessions on disk
-│   ├── models/                     # Saved ML model artifacts
-│   ├── charts/                     # Generated chart images
-│   └── requirements.txt            # Python dependencies
+│   │   ├── registry.py                   # Central tool registry
+│   │   ├── cleaning.py                   # Data cleaning tools (5)
+│   │   ├── eda.py                        # EDA tools (5)
+│   │   ├── visualization.py              # Chart generation tools (5)
+│   │   ├── modeling.py                   # ML modeling tools (6)
+│   │   ├── preprocessing.py              # Preprocessing & feature engineering (12)
+│   │   └── agent_tools.py                # Agent orchestration tool
+│   ├── sessions/                         # Persisted CSV sessions on disk
+│   ├── models/                           # Saved ML model artifacts
+│   ├── charts/                           # Generated chart images
+│   ├── reports/                          # Generated PDF reports
+│   └── requirements.txt                  # Python dependencies
 ├── prisma/
-│   └── schema.prisma               # Database schema
+│   └── schema.prisma                     # DB schema (User, Chat, Pipeline, Report…)
 ├── lib/
-│   └── prisma.ts                   # Prisma client singleton
-├── middleware.ts                    # Clerk auth middleware
+│   ├── prisma.ts                         # Prisma client singleton
+│   └── email.ts                          # Nodemailer SMTP email utility
+├── middleware.ts                          # Clerk auth middleware
 ├── package.json
 └── tsconfig.json
 ```
@@ -465,17 +545,20 @@ dsagent/
 
 | Feature | Status |
 |---------|--------|
-| AI Analyst Chat | Implemented |
-| Pipeline Builder | Implemented |
-| Dashboard Overview | Implemented |
-| Landing Page (3D) | Implemented |
-| Authentication (Clerk) | Implemented |
-| Datasets Manager | Planned |
-| Models Registry | Planned |
-| Explainability Dashboard | Planned |
-| Reports Export (PDF) | Planned |
-| API Endpoints (serve predictions) | Planned |
-| Monitoring | Planned |
+| AI Analyst Chat | ✅ Implemented |
+| Pipeline Builder (visual, drag-and-drop) | ✅ Implemented |
+| Autonomous Pipeline (6-phase AI-driven) | ✅ Implemented |
+| PDF Report Generation | ✅ Implemented |
+| Email Report Delivery (Nodemailer / SMTP) | ✅ Implemented |
+| Request Flow Sidebar (live LLM+tool timeline) | ✅ Implemented |
+| Dashboard Overview | ✅ Implemented |
+| Landing Page (3D React Three Fiber) | ✅ Implemented |
+| Authentication (Clerk) | ✅ Implemented |
+| Datasets Manager | 🔜 Planned |
+| Models Registry | 🔜 Planned |
+| Explainability Dashboard | 🔜 Planned |
+| Serve Predictions via API | 🔜 Planned |
+| Monitoring & Drift Detection | 🔜 Planned |
 
 ---
 
