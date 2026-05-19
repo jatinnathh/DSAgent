@@ -29,39 +29,92 @@ export async function POST(req: NextRequest) {
 
     const result = await res.json();
 
-    // Save report to database if successful
-    if (result.success && result.report_id) {
+    // Save pipeline + run + report to database if successful
+    if (result.success) {
       try {
         const prisma = (await import("@/lib/prisma")).default;
-        const reportPath = result.report_path || "";
-        
-        // Get file size
-        let fileSize = 0;
-        if (reportPath) {
-          try {
-            const fs = await import("fs");
-            const stats = fs.statSync(reportPath);
-            fileSize = stats.size;
-          } catch { /* ignore */ }
+
+        // ── Build step list from the phases for the Pipeline record ──
+        const phaseOrder = ["eda", "cleaning", "visualization", "feature_engineering", "modeling", "evaluation"];
+        const pipelineSteps: any[] = [];
+        for (const phase of phaseOrder) {
+          const ph = result.phases?.[phase];
+          if (!ph?.steps) continue;
+          for (const step of ph.steps) {
+            pipelineSteps.push({
+              tool: step.tool || "",
+              label: step.label || step.tool || "",
+              category: phase,
+              reason: `Autonomous: ${phase}`,
+              success: step.success ?? false,
+              time_ms: step.time_ms ?? 0,
+            });
+          }
         }
 
-        await prisma.report.create({
+        // ── Create Pipeline record ──
+        const pipeline = await prisma.pipeline.create({
           data: {
+            name: `Pipeline – ${dataset_name || "dataset"}`,
             userId,
-            title: `${dataset_name || "Dataset"} — Autonomous Pipeline Report`,
-            description: result.conclusion?.slice(0, 500) || "Autonomous pipeline report",
-            filePath: reportPath,
-            fileSize,
             sessionId: session_id,
+            status: "completed",
+            steps: pipelineSteps,
             metadata: {
-              report_id: result.report_id,
+              mode: "autonomous",
               total_time_ms: result.total_time_ms,
-              phases: Object.keys(result.phases || {}),
+              report_id: result.report_id || null,
+              conclusion: result.conclusion?.slice(0, 500) || "",
             },
           },
         });
+
+        // ── Create PipelineRun record ──
+        await prisma.pipelineRun.create({
+          data: {
+            pipelineId: pipeline.id,
+            sessionId: session_id,
+            status: "completed",
+            stepResults: pipelineSteps.map((s: any) => ({
+              tool: s.tool,
+              success: s.success,
+              executionMs: s.time_ms,
+            })),
+            completedAt: new Date(),
+          },
+        });
+
+        // ── Create Report record ──
+        if (result.report_id) {
+          const reportPath = result.report_path || "";
+          let fileSize = 0;
+          if (reportPath) {
+            try {
+              const fs = await import("fs");
+              const stats = fs.statSync(reportPath);
+              fileSize = stats.size;
+            } catch { /* ignore */ }
+          }
+
+          await prisma.report.create({
+            data: {
+              userId,
+              pipelineId: pipeline.id,
+              title: `${dataset_name || "Dataset"} — Autonomous Pipeline Report`,
+              description: result.conclusion?.slice(0, 500) || "Autonomous pipeline report",
+              filePath: reportPath,
+              fileSize,
+              sessionId: session_id,
+              metadata: {
+                report_id: result.report_id,
+                total_time_ms: result.total_time_ms,
+                phases: Object.keys(result.phases || {}),
+              },
+            },
+          });
+        }
       } catch (dbErr: any) {
-        console.error("Failed to save report to DB:", dbErr.message);
+        console.error("Failed to save autonomous pipeline to DB:", dbErr.message);
       }
     }
 

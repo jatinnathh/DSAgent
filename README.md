@@ -34,6 +34,7 @@
   - [AI Analyst Chat](#ai-analyst-chat)
   - [Pipeline Builder](#pipeline-builder)
   - [Autonomous Pipeline](#autonomous-pipeline)
+  - [Model Management & Export](#model-management--export)
   - [PDF Report Generation & Email Delivery](#pdf-report-generation--email-delivery)
   - [Landing Page](#landing-page)
   - [Dashboard](#dashboard)
@@ -173,6 +174,39 @@ A one-click, **fully automated end-to-end data science run** driven entirely by 
 - Request Flow sidebar — animated node timeline distinguishing **LLM**, **Tool**, and **Upload** event types
 - Retry button on failure
 - Result panel: Download PDF + Email Report buttons once complete
+- **Pipeline database persistence** — Every autonomous run creates a `Pipeline` + `PipelineRun` record, visible in the Pipelines tab with an **AI** badge.
+- **Model auto-save** — The best-performing model from AutoML is automatically persisted to disk (see [Model Management](#model-management--export) below).
+
+---
+
+### Model Management & Export
+
+Trained models are **automatically persisted** after every AutoML run — both autonomous and guided pipelines. The best-performing model is saved to disk and surfaced in a dedicated **Models** dashboard tab.
+
+**How it works:**
+1. **AutoML trains models** — Random Forest, XGBoost, LightGBM, and Logistic/Linear Regression are trained with k-fold cross-validation.
+2. **Best model auto-saved** — The winning model is serialized via `pickle` alongside a JSON metadata file containing metrics, feature names, transform steps, and problem type.
+3. **Models tab** — A dedicated dashboard view lists all saved models with stats (Total, Classification, Regression, Best Score), sortable by creation date.
+4. **Download bundle** — Each model can be downloaded as a `.zip` containing:
+   - `model.pkl` — The serialized scikit-learn / XGBoost / LightGBM model
+   - `transform.py` — A standalone Python script that replicates all preprocessing steps (scaling, encoding, imputation) applied during the pipeline, enabling consistent inference outside DSAgent
+   - `README.md` — Usage instructions for CLI and programmatic prediction
+5. **Delete models** — Remove models from storage with a confirmation dialog.
+
+**Capabilities:**
+- Automatic persistence after every `auto_ml_pipeline` tool execution
+- Metadata includes: model name, problem type, target column, feature names, best score, all metrics, preprocessing transform steps, timestamps
+- Standalone `transform.py` generation — encapsulates the full preprocessing pipeline for production deployment
+- ZIP bundle download via `/api/models/{id}/download`
+- Classification and regression model support
+- Per-model metric cards: accuracy, precision, recall, F1 (classification) or R², RMSE, MAE (regression)
+
+**API surface:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/models` | List all saved models with metadata |
+| `GET` | `/api/models/[modelId]/download` | Download model ZIP bundle (pkl + transform.py + README) |
+| `DELETE` | `/api/models/[modelId]` | Delete a saved model from disk |
 
 ---
 
@@ -229,7 +263,8 @@ A full-featured dashboard with sidebar navigation, real-time data, and 3D banner
 **Views:**
 - **Overview** — Stats cards (total chats, pipelines, messages, pipeline runs), category donut chart, recent pipelines table, recent chats list.
 - **AI Analyst** — Chat sidebar with conversation list + main chat panel (AgentChat component).
-- **Pipelines** — Pipeline list with status badges, step counts, run counts, category breakdown; opens into Pipeline Builder.
+- **Pipelines** — Pipeline list with status badges, step counts, run counts, category breakdown; opens into Pipeline Builder. Autonomous runs show a purple **AI** badge.
+- **Models** — Lists all persisted trained models with type badges, score indicators, feature counts, and download/delete actions.
 
 **Design details:**
 - Collapsible sidebar with section groups (Workspace, Intelligence, Deploy)
@@ -397,6 +432,9 @@ The core agent (`DSAgent`) implements a **ReAct (Reasoning + Acting)** loop:
 | `POST` | `/execute-tool` | Execute a specific tool by name with arguments |
 | `POST` | `/autonomous-pipeline` | Run the full 6-phase autonomous pipeline on a session |
 | `GET` | `/reports/{id}/download` | Download a generated PDF report |
+| `GET` | `/models` | List all saved trained models with metadata |
+| `GET` | `/models/{id}/download` | Download model ZIP bundle (pkl + transform.py + README) |
+| `DELETE` | `/models/{id}` | Delete a saved model from disk |
 | `GET` | `/session/{id}/overview` | Dataset overview for a session |
 | `GET` | `/session/{id}/metadata` | Metadata for restoring chat context |
 | `GET` | `/session/{id}/download` | Download current (modified) CSV |
@@ -416,7 +454,10 @@ The core agent (`DSAgent`) implements a **ReAct (Reasoning + Acting)** loop:
 | `POST` | `/api/pipelines/[pipelineId]/run` | Execute a manual pipeline run |
 | `GET` | `/api/pipelines/[pipelineId]/run` | Get run history |
 | `POST` | `/api/pipelines/suggest` | AI-powered pipeline step suggestions |
-| `POST` | `/api/pipelines/autonomous` | Trigger autonomous pipeline + persist report to DB |
+| `POST` | `/api/pipelines/autonomous` | Trigger autonomous pipeline + persist pipeline, run, and report to DB |
+| `GET` | `/api/models` | List all saved trained models |
+| `GET` | `/api/models/[modelId]/download` | Download model ZIP bundle |
+| `DELETE` | `/api/models/[modelId]` | Delete a saved model |
 | `GET` | `/api/reports` | List all reports for the authenticated user |
 | `GET / DELETE` | `/api/reports/[reportId]` | Get or delete a specific report |
 | `POST` | `/api/reports/[reportId]/email` | Email the PDF report to the user |
@@ -521,11 +562,12 @@ dsagent/
 │   │   ├── cleaning.py                   # Data cleaning tools (5)
 │   │   ├── eda.py                        # EDA tools (5)
 │   │   ├── visualization.py              # Chart generation tools (5)
-│   │   ├── modeling.py                   # ML modeling tools (6)
-│   │   ├── preprocessing.py              # Preprocessing & feature engineering (12)
+│   │   ├── modeling.py                   # ML modeling tools (6) + model persistence
+│   │   ├── preprocessing.py              # Preprocessing, feature engineering (12) + enhanced AutoML
+│   │   ├── model_export.py               # Model bundle generation (ZIP: pkl + transform.py + README)
 │   │   └── agent_tools.py                # Agent orchestration tool
 │   ├── sessions/                         # Persisted CSV sessions on disk
-│   ├── models/                           # Saved ML model artifacts
+│   ├── models/                           # Saved ML model artifacts (.pkl + _meta.json)
 │   ├── charts/                           # Generated chart images
 │   ├── reports/                          # Generated PDF reports
 │   └── requirements.txt                  # Python dependencies
@@ -555,7 +597,7 @@ dsagent/
 | Landing Page (3D React Three Fiber) | ✅ Implemented |
 | Authentication (Clerk) | ✅ Implemented |
 | Datasets Manager | 🔜 Planned |
-| Models Registry | 🔜 Planned |
+| Models Registry & Export (download ZIP bundles) | ✅ Implemented |
 | Explainability Dashboard | 🔜 Planned |
 | Serve Predictions via API | 🔜 Planned |
 | Monitoring & Drift Detection | 🔜 Planned |

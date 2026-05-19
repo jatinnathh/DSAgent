@@ -657,8 +657,11 @@ function PipelineListCard({ pipeline, onRefresh, onViewHistory, onOpen }: {
 
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: C.head, fontSize: 13, fontWeight: 600, color: hov ? C.white : C.text, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", transition: "color 0.15s" }}>
+          <div style={{ fontFamily: C.head, fontSize: 13, fontWeight: 600, color: hov ? C.white : C.text, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", transition: "color 0.15s", display: "flex", alignItems: "center", gap: 6 }}>
             {pipeline.name}
+            {(pipeline.metadata as any)?.mode === "autonomous" && (
+              <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: `${C.purple}25`, color: C.purple, fontFamily: C.mono, fontWeight: 700, letterSpacing: "0.04em", flexShrink: 0 }}>AI</span>
+            )}
           </div>
           <div style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono, display: "flex", alignItems: "center", gap: 8 }}>
             <span>{steps.length} step{steps.length !== 1 ? "s" : ""}</span>
@@ -1096,6 +1099,248 @@ function OverviewContent({ user, setActiveView }: { user: { firstName: string | 
   );
 }
 
+/* ─────────────────────────── MODELS VIEW ───────────────────────────── */
+function ModelsView() {
+  const [models, setModels] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const fetchModels = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/models");
+      if (res.ok) { const d = await res.json(); setModels(d.models || []); }
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchModels(); }, []);
+
+  const handleDownload = async (model: any) => {
+    setDownloadingId(model.model_id);
+    try {
+      const res = await fetch(`/api/models/${model.model_id}/download`);
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `DSAgent_Model_${model.model_name?.replace(/\s/g, "_") || "model"}_${model.model_id}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Download failed");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDelete = async (modelId: string) => {
+    if (!confirm("Delete this model? This cannot be undone.")) return;
+    await fetch(`/api/models/${modelId}`, { method: "DELETE" });
+    fetchModels();
+  };
+
+  const classificationModels = models.filter(m => m.problem_type === "classification");
+  const regressionModels = models.filter(m => m.problem_type === "regression");
+  const bestScore = models.length > 0 ? Math.max(...models.map(m => m.best_score || 0)) : 0;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
+        <div>
+          <h2 style={{ fontFamily: C.head, fontSize: "1.15rem", fontWeight: 700, color: C.text, marginBottom: 4, letterSpacing: "-0.02em" }}>Trained Models</h2>
+          <p style={{ fontSize: 12, color: C.textSub, margin: 0 }}>
+            Best-performing models from your pipelines. Download includes model + transform.py for standalone predictions.
+          </p>
+        </div>
+        <button onClick={fetchModels} style={{ padding: "6px 14px", borderRadius: 7, border: `1px solid ${C.borderMd}`, background: "transparent", color: C.textSub, fontSize: 11, cursor: "pointer", fontFamily: C.sans }}>
+          ↻ Refresh
+        </button>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
+        {[
+          { label: "Total Models", value: loading ? "…" : models.length, color: C.cyan },
+          { label: "Classification", value: loading ? "…" : classificationModels.length, color: C.purple },
+          { label: "Regression", value: loading ? "…" : regressionModels.length, color: C.green },
+          { label: "Best Score", value: loading ? "…" : (bestScore > 0 ? bestScore.toFixed(4) : "—"), color: C.amber },
+        ].map((s, i) => (
+          <div key={i} style={{ ...card, padding: "13px 15px" }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: C.textMute, textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 5, fontFamily: C.mono }}>{s.label}</div>
+            <div style={{ fontFamily: C.head, fontSize: "1.5rem", fontWeight: 700, color: s.color, letterSpacing: "-0.03em" }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Models list */}
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ height: 100, borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, opacity: 0.3 + i * 0.15 }} />
+          ))}
+        </div>
+      ) : models.length === 0 ? (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          style={{ textAlign: "center", padding: "70px 20px", background: C.card, borderRadius: 16, border: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 38, marginBottom: 14 }}>🤖</div>
+          <div style={{ fontFamily: C.head, fontSize: "1rem", fontWeight: 600, color: C.text, marginBottom: 7 }}>No trained models yet</div>
+          <p style={{ fontSize: 12, color: C.textSub, maxWidth: 380, margin: "0 auto" }}>
+            Run a pipeline with a modeling step to train ML models. The best-performing model from each pipeline will appear here, ready to download with a standalone transform.py.
+          </p>
+        </motion.div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {models.map((model) => {
+            const isDownloading = downloadingId === model.model_id;
+            const isClassification = model.problem_type === "classification";
+            const scoreColor = (model.best_score || 0) >= 0.9 ? C.green : (model.best_score || 0) >= 0.7 ? C.amber : C.red;
+            const typeColor = isClassification ? C.purple : C.green;
+            const metrics = model.metrics || {};
+            const metricEntries = Object.entries(metrics).slice(0, 4);
+            const featureCount = model.feature_names?.length ?? 0;
+            const transformSteps = model.transform_steps?.length ?? 0;
+
+            return (
+              <motion.div key={model.model_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                style={{
+                  background: C.card, borderRadius: 14, border: `1px solid ${C.border}`,
+                  overflow: "hidden", transition: "border-color 0.15s",
+                }}
+              >
+                {/* Top row: model info + actions */}
+                <div style={{ padding: "16px 18px", display: "flex", alignItems: "flex-start", gap: 14 }}>
+                  {/* Model icon */}
+                  <div style={{
+                    width: 46, height: 46, borderRadius: 12, flexShrink: 0,
+                    background: `${typeColor}12`, border: `1px solid ${typeColor}30`,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
+                  }}>
+                    {isClassification ? "🏷️" : "📈"}
+                  </div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontFamily: C.head, fontSize: 14, fontWeight: 700, color: C.text }}>
+                        {model.model_name || "Unknown Model"}
+                      </span>
+                      <span style={{
+                        fontSize: 9, padding: "2px 7px", borderRadius: 5,
+                        background: `${typeColor}18`, color: typeColor,
+                        border: `1px solid ${typeColor}30`, fontFamily: C.mono, fontWeight: 600,
+                      }}>
+                        {model.problem_type}
+                      </span>
+                      <span style={{
+                        fontSize: 9, padding: "2px 7px", borderRadius: 5,
+                        background: `${scoreColor}18`, color: scoreColor,
+                        border: `1px solid ${scoreColor}30`, fontFamily: C.mono, fontWeight: 700,
+                      }}>
+                        {isClassification ? "acc" : "R²"}: {(model.best_score || 0).toFixed(4)}
+                      </span>
+                    </div>
+
+                    {/* ID row */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 10, color: C.textMute, fontFamily: C.mono, marginBottom: 4 }}>
+                      <span>Pipeline: <span style={{ color: C.cyan }}>{(model.pipeline_id || model.session_id || "—").slice(0, 8)}…</span></span>
+                      <span style={{ color: C.border }}>·</span>
+                      <span>Model: <span style={{ color: C.purple }}>{model.model_id}</span></span>
+                      <span style={{ color: C.border }}>·</span>
+                      <span>Target: <span style={{ color: C.amber }}>{model.target_column}</span></span>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 10, color: C.textMute, fontFamily: C.mono }}>
+                      <span>{featureCount} features</span>
+                      <span style={{ color: C.border }}>·</span>
+                      <span>{transformSteps} transform steps</span>
+                      <span style={{ color: C.border }}>·</span>
+                      <span>{model.created_at ? new Date(model.created_at).toLocaleDateString() : "—"}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                    <button
+                      onClick={() => handleDownload(model)}
+                      disabled={isDownloading}
+                      style={{
+                        padding: "8px 16px", borderRadius: 8, border: "none",
+                        background: `linear-gradient(135deg, ${C.cyan}, #0099CC)`, color: "#030712",
+                        fontSize: 11, fontWeight: 700, fontFamily: C.head, cursor: isDownloading ? "wait" : "pointer",
+                        display: "flex", alignItems: "center", gap: 5,
+                        opacity: isDownloading ? 0.6 : 1,
+                        boxShadow: `0 2px 12px ${C.cyan}30`,
+                      }}
+                    >
+                      {isDownloading ? (
+                        <><span style={{ display: "inline-block", animation: "pls 1s ease-in-out infinite" }}>⏳</span> Bundling…</>
+                      ) : (
+                        <>📦 Download .zip</>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(model.model_id)}
+                      style={{
+                        padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.border}`,
+                        background: "transparent", color: C.textMute, fontSize: 13, cursor: "pointer",
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.color = C.red)}
+                      onMouseLeave={e => (e.currentTarget.style.color = C.textMute)}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+
+                {/* Metrics bar */}
+                {metricEntries.length > 0 && (
+                  <div style={{ padding: "0 18px 14px", display: "flex", gap: 16 }}>
+                    {metricEntries.map(([key, val]) => (
+                      <div key={key} style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>{key.replace(/_/g, " ")}</span>
+                          <span style={{ fontSize: 9, color: C.textSub, fontFamily: C.mono, fontWeight: 600 }}>{typeof val === "number" ? val.toFixed(4) : String(val)}</span>
+                        </div>
+                        <div style={{ height: 3, background: C.border, borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{
+                            height: "100%",
+                            width: `${Math.min(Math.abs(typeof val === "number" ? val : 0) * 100, 100)}%`,
+                            background: scoreColor,
+                            borderRadius: 2,
+                            transition: "width 0.6s ease",
+                          }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* CLI hint */}
+                <div style={{
+                  padding: "10px 18px", borderTop: `1px solid ${C.border}`,
+                  background: `${C.bg}88`, display: "flex", alignItems: "center", gap: 8,
+                }}>
+                  <span style={{ fontSize: 10, color: C.textMute, fontFamily: C.mono }}>$</span>
+                  <code style={{
+                    fontSize: 10, color: C.cyan, fontFamily: C.mono, flex: 1,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    python transform.py {model.feature_names?.slice(0, 3).map((f: string) => `--${f} <val>`).join(" ") || "--feature <value>"}
+                  </code>
+                  <span style={{ fontSize: 9, color: C.textMute, fontFamily: C.mono, flexShrink: 0 }}>CLI usage</span>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─────────────────────────── REPORTS VIEW ──────────────────────────── */
 function ReportsView() {
   const [reports, setReports] = useState<any[]>([]);
@@ -1272,7 +1517,7 @@ export default function DashboardClient({ user }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const sW = collapsed ? 60 : 228;
 
-  const topbarTitle = activeView === "agent" ? "AI Analyst" : activeView === "pipelines" ? "Pipelines" : activeView.charAt(0).toUpperCase() + activeView.slice(1);
+  const topbarTitle = activeView === "agent" ? "AI Analyst" : activeView === "pipelines" ? "Pipelines" : activeView === "models" ? "Trained Models" : activeView.charAt(0).toUpperCase() + activeView.slice(1);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, color: C.text, fontFamily: C.sans, position: "relative" }}>
@@ -1351,7 +1596,12 @@ export default function DashboardClient({ user }: Props) {
                 <ReportsView />
               </motion.div>
             )}
-            {activeView !== "agent" && activeView !== "pipelines" && activeView !== "reports" && (
+            {activeView === "models" && (
+              <motion.div key="models" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                <ModelsView />
+              </motion.div>
+            )}
+            {activeView !== "agent" && activeView !== "pipelines" && activeView !== "reports" && activeView !== "models" && (
               <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
                 <OverviewContent user={user} setActiveView={setActiveView} />
               </motion.div>

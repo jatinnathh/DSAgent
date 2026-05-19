@@ -15,6 +15,7 @@ from typing import Dict, Any, List, Optional
 from .registry import tool_registry
 from .cleaning import get_dataframe
 from .report_generator import generate_report
+from .modeling import record_transform_step
 
 HF_ENDPOINT = "https://router.huggingface.co/v1/chat/completions"
 MODEL_ID = "Qwen/Qwen3-8B"
@@ -74,6 +75,15 @@ def _execute_tool(tool_name: str, session_id: str, args: Dict) -> Dict[str, Any]
     """Execute a tool and return its result as a plain dict."""
     args["session_id"] = session_id
     t0 = time.time()
+    
+    # Preprocessing tools whose steps should be recorded for transform.py
+    _TRANSFORM_TOOLS = {
+        "fill_missing_values", "remove_duplicates", "remove_outliers",
+        "standard_scaler", "min_max_scaler", "robust_scaler",
+        "log_transform", "one_hot_encode", "label_encode",
+        "drop_columns", "pca_transform", "polynomial_features",
+    }
+    
     try:
         tool_result = tool_registry.execute(tool_name, args)
         elapsed = round((time.time() - t0) * 1000)
@@ -87,7 +97,16 @@ def _execute_tool(tool_name: str, session_id: str, args: Dict) -> Dict[str, Any]
         if isinstance(output, dict):
             image_b64 = output.pop("image_base64", "") or output.pop("chart_base64", "") or ""
         
-        return {"success": True, "result": output if isinstance(output, dict) else {"value": output}, "image_base64": image_b64, "time_ms": elapsed}
+        result_dict = output if isinstance(output, dict) else {"value": output}
+        
+        # Record preprocessing steps for transform.py generation
+        if tool_name in _TRANSFORM_TOOLS and tool_result.success:
+            try:
+                record_transform_step(session_id, tool_name, args, result_dict)
+            except Exception:
+                pass  # Don't fail the pipeline over recording
+        
+        return {"success": True, "result": result_dict, "image_base64": image_b64, "time_ms": elapsed}
     except Exception as e:
         elapsed = round((time.time() - t0) * 1000)
         return {"success": False, "result": {}, "error": str(e), "image_base64": "", "time_ms": elapsed}

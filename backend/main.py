@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import pandas as pd
@@ -149,8 +149,27 @@ async def execute_tool(request: ToolExecuteRequest):
     """
     Execute a specific tool manually
     """
+    # Preprocessing tools that should be recorded for transform.py
+    _TRANSFORM_TOOLS = {
+        "fill_missing_values", "remove_duplicates", "remove_outliers",
+        "standard_scaler", "min_max_scaler", "robust_scaler",
+        "log_transform", "one_hot_encode", "label_encode",
+        "drop_columns", "pca_transform", "polynomial_features",
+    }
+    
     try:
         result = tool_registry.execute(request.tool_name, request.arguments)
+        
+        # Record preprocessing steps for manual pipeline runs
+        if request.tool_name in _TRANSFORM_TOOLS and result.success:
+            session_id = request.arguments.get("session_id", "")
+            if session_id:
+                try:
+                    from tools.modeling import record_transform_step
+                    output = result.output if isinstance(result.output, dict) else {}
+                    record_transform_step(session_id, request.tool_name, request.arguments, output)
+                except Exception:
+                    pass  # Don't fail over recording
         
         return {
             "success": result.success,
@@ -430,6 +449,67 @@ async def download_report(report_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+
+# ============================================
+# MODELS — List, Download, Delete
+# ============================================
+
+@app.get("/models")
+async def list_models():
+    """List all saved trained models with metadata."""
+    try:
+        from tools.model_export import list_saved_models
+        models = list_saved_models()
+        return {"models": models, "total": len(models)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list models: {str(e)}")
+
+
+@app.get("/models/{model_id}/download")
+async def download_model_bundle(model_id: str):
+    """Download a .zip bundle containing model.pkl, transform.py, and README.md."""
+    try:
+        from tools.model_export import create_model_bundle, get_model_meta
+
+        meta = get_model_meta(model_id)
+        if meta is None:
+            raise HTTPException(status_code=404, detail="Model not found")
+
+        zip_bytes = create_model_bundle(model_id)
+        if zip_bytes is None:
+            raise HTTPException(status_code=404, detail="Model files not found on disk")
+
+        model_name = meta.get("model_name", "model").replace(" ", "_")
+        filename = f"DSAgent_Model_{model_name}_{model_id}.zip"
+
+        return StreamingResponse(
+            iter([zip_bytes]),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(zip_bytes)),
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+
+@app.delete("/models/{model_id}")
+async def delete_model_endpoint(model_id: str):
+    """Delete a saved model and its metadata."""
+    try:
+        from tools.model_export import delete_model
+        deleted = delete_model(model_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Model not found")
+        return {"success": True, "model_id": model_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
 
 
 if __name__ == "__main__":

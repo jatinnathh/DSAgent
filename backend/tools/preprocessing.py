@@ -1114,6 +1114,28 @@ def auto_ml_pipeline(
         except Exception as exc:
             results[name] = {"error": str(exc)}
 
+    # ── Persist best model to disk ──────────────────────────────────────────
+    model_id = ""
+    if best_name and best_name in models:
+        try:
+            from .modeling import _persist_best_model
+            best_metrics = results.get(best_name, {})
+            model_id = _persist_best_model(
+                session_id=session_id,
+                best_model_name=best_name,
+                model_obj=models[best_name],  # the actual trained sklearn model
+                problem_type=problem_type,
+                target_column=target_column,
+                feature_names=list(X.columns),
+                best_score=round(best_score, 4),
+                metrics=best_metrics,
+            )
+            print(f"[preprocessing/auto_ml] Model persisted: {best_name} (id={model_id})")
+        except Exception as e:
+            import traceback
+            print(f"[preprocessing/auto_ml] Failed to persist model: {e}")
+            traceback.print_exc()
+
     # ── Comparison chart ────────────────────────────────────────────────────
     plt.close("all")
     valid = {n: r for n, r in results.items() if "error" not in r}
@@ -1165,6 +1187,7 @@ def auto_ml_pipeline(
         "best_score": round(best_score, 4),
         "results": results,
         "image_base64": image,
+        "model_id": model_id,
         "note": (
             f"Trained on CURRENT session data ({len(df)} rows × {X.shape[1]} features). "
             f"Best: {best_name} ({metric_key}={best_score:.4f})"

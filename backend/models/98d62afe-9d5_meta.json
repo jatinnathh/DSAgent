@@ -1,0 +1,148 @@
+{
+  "model_id": "98d62afe-9d5",
+  "session_id": "d8f80827-0bc2-45f4-8527-1698110c9ba4",
+  "pipeline_id": "d8f80827-0bc2-45f4-8527-1698110c9ba4",
+  "model_name": "XGBoost",
+  "problem_type": "classification",
+  "target_column": "Embarked_S",
+  "feature_names": [
+    "PassengerId",
+    "Survived",
+    "Pclass",
+    "Name",
+    "Age",
+    "SibSp",
+    "Parch",
+    "Ticket",
+    "Fare",
+    "Cabin",
+    "Sex_male",
+    "Embarked_Q"
+  ],
+  "best_score": 0.7826,
+  "metrics": {
+    "cv_mean": 0.7807,
+    "cv_std": 0.0584,
+    "accuracy": 0.7826,
+    "precision": 0.7652,
+    "recall": 0.7826,
+    "f1_score": 0.7552
+  },
+  "transform_steps": [
+    {
+      "tool": "fill_missing_values",
+      "args": {
+        "column": "Age",
+        "strategy": "median"
+      },
+      "result_summary": {
+        "column": "Age",
+        "strategy": "median",
+        "action": "Filled with median: 28.00",
+        "nulls_before": 177,
+        "nulls_after": 0,
+        "rows_after": 891
+      }
+    },
+    {
+      "tool": "fill_missing_values",
+      "args": {
+        "column": "Embarked",
+        "strategy": "mode"
+      },
+      "result_summary": {
+        "column": "Embarked",
+        "strategy": "mode",
+        "action": "Filled with mode: S",
+        "nulls_before": 2,
+        "nulls_after": 0,
+        "rows_after": 891
+      }
+    },
+    {
+      "tool": "remove_outliers",
+      "args": {
+        "column": "Fare",
+        "method": "iqr"
+      },
+      "result_summary": {
+        "column": "Fare",
+        "method": "iqr",
+        "threshold": 1.5,
+        "rows_removed": 116,
+        "rows_remaining": 775,
+        "removal_percentage": 13.02
+      }
+    },
+    {
+      "tool": "fill_missing_values",
+      "args": {
+        "column": "Cabin",
+        "strategy": "drop"
+      },
+      "result_summary": {
+        "column": "Cabin",
+        "strategy": "drop",
+        "action": "Dropped 661 rows",
+        "nulls_before": 661,
+        "nulls_after": 0,
+        "rows_after": 114
+      }
+    },
+    {
+      "tool": "one_hot_encode",
+      "args": {
+        "columns_to_encode": "Sex,Embarked"
+      },
+      "result_summary": {
+        "encoding": "One-Hot (get_dummies)",
+        "encoded_columns": [
+          "Sex",
+          "Embarked"
+        ],
+        "drop_first": true,
+        "columns_before": 12,
+        "columns_after": 13,
+        "new_columns_added": 1,
+        "rows": 114
+      }
+    },
+    {
+      "tool": "standard_scaler",
+      "args": {
+        "columns_to_scale": "Age,Fare"
+      },
+      "result_summary": {
+        "scaler": "StandardScaler (Z-score)",
+        "columns_scaled": [
+          "Age",
+          "Fare"
+        ],
+        "before": {
+          "Age": {
+            "mean": 35.364,
+            "std": 15.1965
+          },
+          "Fare": {
+            "mean": 32.7352,
+            "std": 16.757
+          }
+        },
+        "after": {
+          "Age": {
+            "mean": -0.0,
+            "std": 1.0044
+          },
+          "Fare": {
+            "mean": 0.0,
+            "std": 1.0044
+          }
+        },
+        "rows": 114,
+        "note": "Dataset updated in session. Features now have \u03bc\u22480, \u03c3\u22481."
+      }
+    }
+  ],
+  "created_at": "2026-05-19T17:56:09.673588Z",
+  "pkl_filename": "98d62afe-9d5.pkl"
+}

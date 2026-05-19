@@ -17,6 +17,9 @@ import io
 import base64
 import pickle
 import os
+import json
+import uuid
+from datetime import datetime
 from .registry import tool_registry
 from .cleaning import get_dataframe, update_dataframe
 
@@ -24,11 +27,80 @@ from .cleaning import get_dataframe, update_dataframe
 plt.switch_backend('Agg')
 
 # Create models directory
-MODELS_DIR = "models"
+MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models")
 os.makedirs(MODELS_DIR, exist_ok=True)
 
 # Global storage for trained models per session
 _session_models: Dict[str, Dict[str, Any]] = {}
+
+# Track preprocessing steps per session (set by autonomous.py and pipeline runs)
+_session_transform_steps: Dict[str, List[Dict[str, Any]]] = {}
+
+def record_transform_step(session_id: str, tool_name: str, args: Dict[str, Any], result: Dict[str, Any]):
+    """Record a preprocessing step for later transform.py generation."""
+    if session_id not in _session_transform_steps:
+        _session_transform_steps[session_id] = []
+    _session_transform_steps[session_id].append({
+        "tool": tool_name,
+        "args": {k: v for k, v in args.items() if k != "session_id"},
+        "result_summary": {k: v for k, v in result.items()
+                          if k not in ("image_base64", "chart_base64") and not isinstance(v, (bytes, pd.DataFrame))},
+    })
+
+def get_transform_steps(session_id: str) -> List[Dict[str, Any]]:
+    """Get recorded transform steps for a session."""
+    return _session_transform_steps.get(session_id, [])
+
+def _persist_best_model(
+    session_id: str,
+    best_model_name: str,
+    model_obj: Any,
+    problem_type: str,
+    target_column: str,
+    feature_names: List[str],
+    best_score: float,
+    metrics: Dict[str, Any],
+    pipeline_id: Optional[str] = None,
+) -> str:
+    """
+    Save the best model + metadata to disk. Returns the model_id.
+    """
+    model_id = str(uuid.uuid4())[:12]
+    print(f"[modeling] Persisting model: {best_model_name} (id={model_id}) to {MODELS_DIR}")
+    
+    # Ensure models directory exists
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    
+    # Save model pickle
+    pkl_path = os.path.join(MODELS_DIR, f"{model_id}.pkl")
+    with open(pkl_path, "wb") as f:
+        pickle.dump(model_obj, f)
+    print(f"[modeling] Saved pickle: {pkl_path}")
+    
+    # Collect transform steps
+    transform_steps = get_transform_steps(session_id)
+    
+    # Save metadata JSON
+    meta = {
+        "model_id": model_id,
+        "session_id": session_id,
+        "pipeline_id": pipeline_id or session_id,
+        "model_name": best_model_name,
+        "problem_type": problem_type,
+        "target_column": target_column,
+        "feature_names": feature_names,
+        "best_score": best_score,
+        "metrics": metrics,
+        "transform_steps": transform_steps,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "pkl_filename": f"{model_id}.pkl",
+    }
+    meta_path = os.path.join(MODELS_DIR, f"{model_id}_meta.json")
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2, default=str)
+    
+    print(f"[modeling] Saved meta: {meta_path}")
+    return model_id
 
 def _save_plot_as_base64() -> str:
     """Save current matplotlib plot as base64 string"""
@@ -109,6 +181,13 @@ def auto_ml_pipeline(
         random_state: Random seed for reproducibility
     """
     df = get_dataframe(session_id)
+    
+    # ── DIAGNOSTIC: prove this function runs and can write files ──
+    import datetime
+    diag_path = os.path.join(MODELS_DIR, "_diagnostic.txt")
+    with open(diag_path, "a") as _df:
+        _df.write(f"auto_ml_pipeline called at {datetime.datetime.now()} session={session_id} target={target_column}\n")
+    print(f"[modeling] DIAGNOSTIC written to {diag_path}")
     
     if target_column not in df.columns:
         raise ValueError(f"Target column '{target_column}' not found")
@@ -217,6 +296,31 @@ def auto_ml_pipeline(
     for name, result in results.items():
         clean_results[name] = {k: v for k, v in result.items() if k != "model"}
     
+    # ── Persist best model to disk ──
+    model_id = ""
+    print(f"[modeling] best_model={best_model}, best_score={best_score}")
+    print(f"[modeling] session_models keys: {list(_session_models.get(session_id, {}).get('models', {}).keys())}")
+    if best_model and best_model in _session_models[session_id]["models"]:
+        print(f"[modeling] Condition passed — persisting {best_model}...")
+        best_metrics = clean_results.get(best_model, {})
+        try:
+            model_id = _persist_best_model(
+                session_id=session_id,
+                best_model_name=best_model,
+                model_obj=_session_models[session_id]["models"][best_model],
+                problem_type=problem_type,
+                target_column=target_column,
+                feature_names=list(X.columns),
+                best_score=round(best_score, 4),
+                metrics=best_metrics,
+            )
+        except Exception as e:
+            import traceback
+            print(f"[modeling] Failed to persist model: {e}")
+            traceback.print_exc()
+    else:
+        print(f"[modeling] SKIPPED persist: best_model={best_model}, in_session={best_model in _session_models.get(session_id, {}).get('models', {}) if best_model else 'N/A'}")
+    
     return {
         "problem_type": problem_type,
         "target_column": target_column,
@@ -225,7 +329,8 @@ def auto_ml_pipeline(
         "models_trained": len([r for r in results.values() if "error" not in r]),
         "best_model": best_model,
         "best_score": round(best_score, 4),
-        "results": clean_results
+        "results": clean_results,
+        "model_id": model_id,
     }
 
 tool_registry.register(
