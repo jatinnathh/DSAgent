@@ -213,7 +213,7 @@ Trained models are **automatically persisted** after every AutoML run — both a
 ### PDF Report Generation & Email Delivery
 
 Every autonomous pipeline run produces a **PDF report** and offers one-click **email delivery**.
-
+A
 **Report generation:**
 - Backend generates a structured PDF (report ID, path, file size) at the end of the autonomous pipeline.
 - Report metadata (report ID, phases, total time, conclusion) is persisted to the `Report` model in PostgreSQL.
