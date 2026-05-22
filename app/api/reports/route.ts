@@ -1,21 +1,12 @@
-// app/api/reports/route.ts
-import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import prisma from "@/lib/prisma";
+// Refactored: app/api/reports/route.ts — Using service layer + api handler wrapper
+import { createApiHandler } from '@/lib/api-handler';
+import { reportService } from '@/lib/services/reportService';
 
-export async function GET() {
-  try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const reports = await prisma.report.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      include: { pipeline: { select: { id: true, name: true } } },
-    });
-
-    return NextResponse.json({ reports });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}
+// GET /api/reports — list user's reports
+export const GET = createApiHandler(
+  async (_req, ctx) => {
+    const reports = await reportService.listReports(ctx.userId);
+    return { reports };
+  },
+  { action: 'reports.list', resource: 'reports' }
+);

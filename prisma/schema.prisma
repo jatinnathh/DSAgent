@@ -8,12 +8,19 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  clerkId   String     @unique
-  email     String     @unique
-  chats     Chat[]
-  pipelines Pipeline[]
-  reports   Report[]
+  id          String     @id @default(cuid())
+  clerkId     String     @unique
+  email       String     @unique
+  role        String     @default("user") // "user" | "admin"
+  lastLoginAt DateTime?
+  loginCount  Int        @default(0)
+  createdAt   DateTime   @default(now())
+  chats       Chat[]
+  pipelines   Pipeline[]
+  reports     Report[]
+  auditLogs   AuditLog[]
+
+  @@index([email])
 }
 
 model Chat {
@@ -87,4 +94,74 @@ model Report {
   pipeline    Pipeline? @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+}
+
+// ============================================
+// AUDIT & OBSERVABILITY MODELS
+// ============================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  userEmail   String?
+  action      String   // e.g., "api.chats.list", "api.upload", "page.view", "login"
+  resource    String?  // e.g., "chat:abc123", "pipeline:xyz"
+  method      String?  // HTTP method: GET, POST, PUT, DELETE
+  path        String?  // Request path
+  statusCode  Int?     // HTTP response status code
+  duration    Int?     // Request duration in ms
+  ip          String?  // Client IP address
+  userAgent   String?  // Client user-agent string
+  requestBody Json?    // Sanitized request body (no secrets)
+  responsePreview String? // First 500 chars of response
+  errorMessage String? // Error message if request failed
+  requestId   String?  // Correlation ID
+  metadata    Json?    // Any additional context
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [clerkId])
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([statusCode])
+  @@index([requestId])
+}
+
+model SystemEvent {
+  id          String   @id @default(cuid())
+  type        String   // "startup", "shutdown", "error", "health_check", "job_complete", "deployment"
+  severity    String   @default("info") // "debug", "info", "warn", "error", "critical"
+  message     String
+  source      String?  // "next", "fastapi", "worker", "cron"
+  metadata    Json?    // Additional context
+  stackTrace  String?  // Error stack trace if applicable
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+model BackgroundJob {
+  id          String    @id @default(cuid())
+  type        String    // "pipeline_run", "email_send", "report_generate", "audit_flush"
+  status      String    @default("pending") // "pending", "running", "completed", "failed", "cancelled"
+  payload     Json?     // Job input data
+  result      Json?     // Job output data
+  error       String?   // Error message if failed
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  priority    Int       @default(0) // Higher = more urgent
+  scheduledAt DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdBy   String?   // userId who triggered the job
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([createdBy])
 }

@@ -6,10 +6,22 @@ from typing import Optional, Dict, Any, List
 import pandas as pd
 import io
 import os
+import signal
+import asyncio
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # Import our modules
 from core.metadata import extract_metadata, metadata_to_llm_prompt
+from core.logging_config import setup_logging, get_logger
+from core.middleware import (
+    RequestIdMiddleware,
+    TimingMiddleware,
+    ConcurrencyLimitMiddleware,
+    TimeoutMiddleware,
+    AuditMiddleware,
+    ErrorHandlerMiddleware,
+)
 from tools.cleaning import set_dataframe
 from tools.registry import tool_registry
 from tools.agent_tools import run_agent_analysis
@@ -20,9 +32,86 @@ from pathlib import Path
 load_dotenv(Path(__file__).parent / ".env")
 load_dotenv(Path(__file__).parent.parent / ".env", override=False)  # root .env
 
-app = FastAPI(title="DSAgent Backend", version="1.0.0")
+# ============================================
+# LOGGING
+# ============================================
 
-# CORS - allow Next.js frontend to call this API
+setup_logging(log_level=os.getenv("LOG_LEVEL", "INFO"))
+logger = get_logger("main")
+
+# ============================================
+# GRACEFUL SHUTDOWN / LIFESPAN
+# ============================================
+
+# Track active sessions for cleanup
+_active_sessions: Dict[str, Any] = {}
+_shutdown_event = asyncio.Event()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage startup and shutdown lifecycle."""
+    # ---- STARTUP ----
+    logger.info("DSAgent Backend starting up", extra={
+        "tools_registered": len(tool_registry.list_tools()),
+        "environment": os.getenv("ENVIRONMENT", "development"),
+    })
+
+    yield
+
+    # ---- SHUTDOWN ----
+    logger.info("DSAgent Backend shutting down gracefully...")
+
+    # Signal all active tasks
+    _shutdown_event.set()
+
+    # Allow in-flight requests to complete (up to 10 seconds)
+    logger.info("Draining in-flight requests...")
+    await asyncio.sleep(2)
+
+    # Clean up active sessions
+    session_count = len(_active_sessions)
+    _active_sessions.clear()
+    logger.info(f"Cleaned up {session_count} active sessions")
+
+    # Flush logs
+    logger.info("Backend shutdown complete")
+
+
+# ============================================
+# APP INITIALIZATION
+# ============================================
+
+app = FastAPI(
+    title="DSAgent Backend",
+    version="2.0.0",
+    description="Enterprise-grade autonomous data science backend with structured logging, fault tolerance, and observability",
+    lifespan=lifespan,
+)
+
+# ============================================
+# MIDDLEWARE STACK (order matters — outermost first)
+# ============================================
+
+# Error handler — outermost, catches all unhandled exceptions
+app.add_middleware(ErrorHandlerMiddleware)
+
+# Audit — log every request
+app.add_middleware(AuditMiddleware)
+
+# Timing — measure request duration
+app.add_middleware(TimingMiddleware)
+
+# Request ID — inject correlation ID
+app.add_middleware(RequestIdMiddleware)
+
+# Timeout — kill requests after 120 seconds
+app.add_middleware(TimeoutMiddleware, timeout_seconds=120)
+
+# Concurrency limit — max 50 concurrent requests
+app.add_middleware(ConcurrencyLimitMiddleware, max_concurrent=50)
+
+# CORS — allow Next.js frontend to call this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -33,6 +122,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-Id", "X-Response-Time"],
 )
 
 # Request/Response models
@@ -68,11 +158,40 @@ class ModelTrainRequest(BaseModel):
 
 @app.get("/")
 def root():
-    return {"message": "DSAgent Backend Running", "status": "healthy", "tools": len(tool_registry.list_tools())}
+    return {
+        "message": "DSAgent Backend Running",
+        "status": "healthy",
+        "version": "2.0.0",
+        "tools": len(tool_registry.list_tools()),
+    }
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "tools_registered": len(tool_registry.list_tools())}
+    """Detailed health check endpoint."""
+    import psutil
+
+    try:
+        memory = psutil.virtual_memory()
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory_info = {
+            "total_gb": round(memory.total / (1024**3), 2),
+            "used_gb": round(memory.used / (1024**3), 2),
+            "percent": memory.percent,
+        }
+    except Exception:
+        memory_info = {"error": "psutil not available"}
+        cpu_percent = -1
+
+    return {
+        "status": "ok",
+        "version": "2.0.0",
+        "tools_registered": len(tool_registry.list_tools()),
+        "active_sessions": len(_active_sessions),
+        "system": {
+            "memory": memory_info,
+            "cpu_percent": cpu_percent,
+        },
+    }
 
 @app.get("/tools")
 def get_tools():
@@ -102,8 +221,22 @@ async def upload_dataset(file: UploadFile = File(...)):
         df = pd.read_csv(io.BytesIO(content))
         set_dataframe(metadata.session_id, df)
         
+        # Track active session
+        _active_sessions[metadata.session_id] = {
+            "filename": file.filename,
+            "rows": len(df),
+            "columns": len(df.columns),
+        }
+        
         # Generate LLM prompt
         llm_prompt = metadata_to_llm_prompt(metadata)
+
+        logger.info("Dataset uploaded", extra={
+            "session_id": metadata.session_id,
+            "filename": file.filename,
+            "rows": len(df),
+            "columns": len(df.columns),
+        })
         
         return {
             "session_id": metadata.session_id,
@@ -114,6 +247,7 @@ async def upload_dataset(file: UploadFile = File(...)):
         }
         
     except Exception as e:
+        logger.error(f"Upload failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 @app.post("/analyze")
@@ -142,6 +276,7 @@ async def analyze_dataset(request: AnalysisRequest):
             }
             
     except Exception as e:
+        logger.error(f"Analysis failed: {e}", exc_info=True, extra={"session_id": request.session_id})
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 @app.post("/execute-tool")
@@ -170,6 +305,12 @@ async def execute_tool(request: ToolExecuteRequest):
                     record_transform_step(session_id, request.tool_name, request.arguments, output)
                 except Exception:
                     pass  # Don't fail over recording
+
+        logger.info(f"Tool executed: {request.tool_name}", extra={
+            "tool_name": request.tool_name,
+            "success": result.success,
+            "duration_ms": result.execution_time_ms,
+        })
         
         return {
             "success": result.success,
@@ -180,6 +321,7 @@ async def execute_tool(request: ToolExecuteRequest):
         }
         
     except Exception as e:
+        logger.error(f"Tool execution failed: {e}", exc_info=True, extra={"tool_name": request.tool_name})
         raise HTTPException(status_code=500, detail=f"Tool execution failed: {str(e)}")
 
 @app.get("/session/{session_id}/overview")
@@ -197,9 +339,6 @@ async def get_session_overview(session_id: str):
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting overview: {str(e)}")
-"""
-ADD this endpoint to backend/main.py, after the existing /session/{session_id}/overview endpoint.
-"""
 
 @app.get("/session/{session_id}/metadata")
 async def get_session_metadata(session_id: str):
@@ -245,9 +384,6 @@ async def get_session_metadata(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# Add this endpoint to backend/main.py
-# Place it after the existing /session/{session_id}/metadata endpoint
 
 from fastapi.responses import StreamingResponse
 import io
@@ -375,6 +511,8 @@ async def autonomous_pipeline(request: AutonomousPipelineRequest):
     try:
         from tools.autonomous import run_autonomous_pipeline
 
+        logger.info("Autonomous pipeline started", extra={"session_id": request.session_id})
+
         result = run_autonomous_pipeline(
             session_id=request.session_id,
             dataset_name=request.dataset_name,
@@ -403,6 +541,11 @@ async def autonomous_pipeline(request: AutonomousPipelineRequest):
                 "llm_explanation": phase_data.get("llm_explanation", ""),
             }
 
+        logger.info("Autonomous pipeline completed", extra={
+            "session_id": request.session_id,
+            "total_time_ms": result.get("total_time_ms", 0),
+        })
+
         return {
             "success": True,
             "report_id": result.get("report_id", ""),
@@ -415,6 +558,7 @@ async def autonomous_pipeline(request: AutonomousPipelineRequest):
     except Exception as e:
         import traceback
         traceback.print_exc()
+        logger.error(f"Autonomous pipeline failed: {e}", exc_info=True, extra={"session_id": request.session_id})
         raise HTTPException(status_code=500, detail=f"Autonomous pipeline failed: {str(e)}")
 
 
@@ -514,4 +658,11 @@ async def delete_model_endpoint(model_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info",
+        timeout_graceful_shutdown=10,  # 10 second graceful shutdown window
+    )
