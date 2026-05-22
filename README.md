@@ -584,24 +584,160 @@ dsagent/
 
 ---
 
-## Roadmap
+### Structured Logging & Audit Trail
 
-| Feature | Status |
-|---------|--------|
-| AI Analyst Chat | ✅ Implemented |
-| Pipeline Builder (visual, drag-and-drop) | ✅ Implemented |
-| Autonomous Pipeline (6-phase AI-driven) | ✅ Implemented |
-| PDF Report Generation | ✅ Implemented |
-| Email Report Delivery (Nodemailer / SMTP) | ✅ Implemented |
-| Request Flow Sidebar (live LLM+tool timeline) | ✅ Implemented |
-| Dashboard Overview | ✅ Implemented |
-| Landing Page (3D React Three Fiber) | ✅ Implemented |
-| Authentication (Clerk) | ✅ Implemented |
-| Datasets Manager | 🔜 Planned |
-| Models Registry & Export (download ZIP bundles) | ✅ Implemented |
-| Explainability Dashboard | 🔜 Planned |
-| Serve Predictions via API | 🔜 Planned |
-| Monitoring & Drift Detection | 🔜 Planned |
+Every action across the platform is captured in structured JSON logs with automatic file rotation and a permanent database audit trail.
+
+**How it works:**
+1. **Frontend (Winston)** — All Next.js API routes emit structured JSON logs with request ID, user ID, method, path, duration, and status code. Logs rotate daily with configurable retention.
+2. **Backend (structlog)** — FastAPI uses `structlog` for consistent JSON output across all tool executions, agent loops, and pipeline runs.
+3. **AuditLog table** — Every API call, login event, and page view is persisted to a dedicated `AuditLog` PostgreSQL table with actor, action, resource type, resource ID, IP address, and timestamp.
+
+**Capabilities:**
+- Request-scoped correlation IDs threaded across frontend and backend logs
+- Sensitive fields (passwords, tokens) automatically redacted before logging
+- Audit log queryable from the Admin Dashboard with filters by user, action type, and date range
+- Log files written to `/logs/` with daily rotation and 30-day retention
+
+---
+
+### Controller / Service / Repository Architecture
+
+The Next.js API layer has been fully refactored from monolithic route handlers into a clean three-layer architecture for maintainability and testability.
+
+**How it works:**
+1. **Controllers** — API route handlers validate incoming requests and delegate to services. No business logic lives here.
+2. **Services** — Encapsulate all business logic (orchestration, error handling, external calls). 5 services: `ChatService`, `PipelineService`, `ReportService`, `ModelService`, `AuditService`.
+3. **Repositories** — All database access is isolated in 6 typed Prisma repository classes: `ChatRepository`, `MessageRepository`, `PipelineRepository`, `PipelineRunRepository`, `ReportRepository`, `AuditRepository`.
+
+**Capabilities:**
+- Zero raw Prisma calls in route handlers — all queries go through repositories
+- Services are independently testable with mocked repositories
+- Consistent error propagation from repository → service → controller
+- Shared request context (user ID, correlation ID) passed through all layers
+
+---
+
+### Task Queue
+
+Long-running operations (autonomous pipelines, PDF generation, email delivery) are offloaded to an in-memory task queue backed by database persistence.
+
+**How it works:**
+1. **Enqueue** — API routes push jobs onto the queue instead of awaiting them inline; the caller receives a job ID immediately.
+2. **Workers** — 3 concurrent worker threads pull jobs from the queue and execute them. Each worker updates job status (`pending` → `running` → `completed` / `failed`) in the database.
+3. **Retry logic** — Failed jobs are automatically retried up to 3 times with exponential backoff before being marked permanently failed.
+
+**Capabilities:**
+- Jobs persisted to a `Job` table — survive server restarts
+- Per-job status, progress percentage, result payload, and error message tracked in DB
+- Job status pollable via `/api/jobs/[jobId]`
+- Dead letter visibility — permanently failed jobs retained with full error trace
+- Queue depth and worker utilization surfaced in the Admin Dashboard
+
+---
+
+### Graceful Shutdown
+
+The FastAPI backend shuts down cleanly without dropping in-flight requests or leaving corrupted session state.
+
+**How it works:**
+1. **Lifespan hooks** — FastAPI's `lifespan` context manager registers startup and shutdown handlers.
+2. **Request drain** — On `SIGTERM`, the server stops accepting new connections and waits for all active requests to complete (configurable drain timeout: 30s).
+3. **Session cleanup** — In-memory DataFrame sessions are flushed to disk before process exit, ensuring all session state is recoverable on restart.
+
+**Capabilities:**
+- Zero in-flight request drops during planned restarts or deployments
+- Session files written atomically to prevent partial writes
+- Task queue workers finish current job before shutting down
+- Shutdown sequence logged with per-step timing for observability
+
+---
+
+### Concurrency & Parallelism
+
+The backend enforces concurrency limits to prevent resource exhaustion under high load.
+
+**How it works:**
+1. **Semaphore limiter** — A global `asyncio.Semaphore` caps simultaneous active requests at 50. Requests beyond the limit receive a `503` with a `Retry-After` header immediately rather than queuing indefinitely.
+2. **Request timeout** — Every request is wrapped in a 120-second timeout. Long-running tool executions that exceed this are cancelled and return a structured timeout error.
+3. **Parallel tool execution** — Where pipeline phases are independent, tools are dispatched concurrently via `asyncio.gather` rather than sequentially.
+
+**Capabilities:**
+- Per-endpoint concurrency overrides (e.g. `/autonomous-pipeline` capped at 5)
+- Timeout duration configurable via environment variable `REQUEST_TIMEOUT_SECONDS`
+- Semaphore queue depth exposed as a metric in the Admin Dashboard health tab
+- Concurrency limit rejections tracked separately in audit logs
+
+---
+
+### Fault Tolerance
+
+The platform is hardened against cascading failures with circuit breakers, a structured error hierarchy, and automatic fallback paths.
+
+**How it works:**
+1. **Circuit breakers (Python)** — Each external dependency (LLM API, Elasticsearch) is wrapped in a circuit breaker. After 5 consecutive failures the circuit opens, returning fast errors for 60 seconds before attempting recovery.
+2. **Circuit breakers (Frontend)** — The Next.js LLM proxy applies the same pattern for Anthropic API calls, surfacing degraded-mode messaging to the user rather than hanging.
+3. **Error hierarchy** — A typed exception tree (`DSAgentError` → `ToolExecutionError`, `SessionNotFoundError`, `ModelNotFoundError`, etc.) ensures all errors carry a code, message, and HTTP status, returning consistent JSON error shapes across every endpoint.
+
+**Capabilities:**
+- Circuit state (closed / open / half-open) visible in Admin Dashboard health tab
+- Structured error responses always include `error.code`, `error.message`, and `error.details`
+- Tool execution failures isolated — one failing tool does not abort the entire pipeline
+- LLM API failures fall back to a degraded response rather than a 500
+
+---
+
+### Elasticsearch Integration
+
+Search and log queries are accelerated by Elasticsearch, with automatic fallback to PostgreSQL when ES is unavailable.
+
+**How it works:**
+1. **Indexing** — Chat messages, pipeline runs, and audit log entries are dual-written to both PostgreSQL and an Elasticsearch index on creation.
+2. **Query routing** — Search endpoints attempt ES first; if ES is unreachable or returns an error, the query falls back transparently to a Prisma full-text search against PostgreSQL.
+3. **Auto-fallback** — The circuit breaker on the ES client triggers the fallback path after repeated connection failures, with no user-facing degradation.
+
+**Capabilities:**
+- Full-text search across chat history and audit logs via ES
+- Index health and document count shown in Admin Dashboard health tab
+- Fallback path tested and exercised in integration tests
+- ES connection configurable via `ELASTICSEARCH_URL` environment variable
+
+---
+
+### Security
+
+The platform applies defense-in-depth across HTTP headers, input sanitization, and access control.
+
+**How it works:**
+1. **HTTP security headers** — All responses include `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and a `Content-Security-Policy` restricting script and frame sources.
+2. **Request body sanitization** — Incoming JSON bodies are recursively sanitized to strip HTML tags, null bytes, and oversized strings before reaching any service or repository layer.
+3. **Admin email gating** — The Admin Dashboard is protected by a server-side allowlist of admin email addresses (configured via `ADMIN_EMAILS` env var) checked after Clerk authentication, returning `403` for non-admin users regardless of auth state.
+
+**Capabilities:**
+- CSP violations reported to `/api/csp-report` and logged
+- Sanitization runs on all `POST`/`PUT` bodies via a shared middleware utility
+- Admin gating enforced at the API route level, not just UI navigation
+- Security headers validated in CI via a header assertion test
+
+---
+
+### Admin Dashboard
+
+A full-featured admin interface for platform observability, user management, and system health monitoring.
+
+**How it works:**
+1. **Access control** — Only users whose email appears in the `ADMIN_EMAILS` allowlist can access `/admin`. All admin API routes re-verify this server-side.
+2. **7-tab layout** — Each tab queries dedicated admin API endpoints aggregating data across all users (not scoped to the current user like the main dashboard).
+3. **Real-time polling** — Health and job tabs refresh every 10 seconds automatically.
+
+**Tabs:**
+- **KPIs** — Platform-wide stats: total users, chats, pipelines, models, reports, messages, and 7-day growth trends.
+- **Activity Feed** — Live stream of recent actions across all users with actor, action, resource, and timestamp.
+- **Users** — Full user list with chat count, pipeline count, last active timestamp, and Clerk user ID.
+- **Audit Logs** — Paginated, filterable audit log table (filter by user, action type, date range). 
+- **Health** — Service health cards for PostgreSQL, Elasticsearch, FastAPI backend, and the task queue — each showing status, latency, and circuit breaker state.
+- **Jobs** — Task queue monitor: pending, running, completed, and failed jobs with per-job progress, worker assignment, retry count, and error trace.
+- **Analytics** — Time-series charts for daily active users, pipeline runs per day, and model training volume over the last 30 days.
 
 ---
 
