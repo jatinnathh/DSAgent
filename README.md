@@ -13,6 +13,7 @@
 </div>
 <img src="public/landing.png" alt="landing" width="900"/>
 <img src="public/signup.png" alt="dashboard" width="900"/>
+<img src="public/admin.png" alt="dashboard" width="900"/>
 <img src="public/dashboard.png" alt="chat" width="900"/>
 <img src="public/auto1.png" alt="chat" width="900"/>
 <img src="public/mail1.png" alt="chat" width="900"/>
