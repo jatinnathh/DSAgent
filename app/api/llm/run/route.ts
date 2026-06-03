@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     // Build tool_call blocks if present
     const toolCallBlocks: any[] = [];
     if (msg.tool_calls && msg.tool_calls.length > 0) {
-      for (const tc of msg.tool_calls) {
+      for (const tc of msg.tool_calls as any[]) {
         toolCallBlocks.push({
           type: "tool_call",
           id: tc.id,
