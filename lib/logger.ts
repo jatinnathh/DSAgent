@@ -3,10 +3,16 @@ import { createLogger, format, transports, Logger } from 'winston';
 import path from 'path';
 import fs from 'fs';
 
-// Ensure logs directory exists
+// Ensure logs directory exists (skip on read-only filesystems like Vercel)
 const logsDir = path.join(process.cwd(), 'logs');
+let canWriteLogs = false;
 if (typeof window === 'undefined') {
-  try { fs.mkdirSync(logsDir, { recursive: true }); } catch { /* ignore */ }
+  try {
+    fs.mkdirSync(logsDir, { recursive: true });
+    canWriteLogs = true;
+  } catch {
+    // Read-only filesystem (e.g. Vercel) — skip file transports
+  }
 }
 
 // ============================================
@@ -63,8 +69,8 @@ const logger: Logger = createLogger({
     new transports.Console({
       format: isDev ? devFormat : jsonFormat,
     }),
-    // File transport — all logs
-    ...(typeof window === 'undefined'
+    // File transports — only when filesystem is writable (not on Vercel)
+    ...(typeof window === 'undefined' && canWriteLogs
       ? [
           new transports.File({
             filename: path.join(logsDir, 'combined.log'),
