@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 
-const HF_API_KEY = process.env.HF_API_KEY!;
-const MODEL_ID = "Qwen/Qwen3-8B";
+const client = new OpenAI({
+  baseURL: "https://aiapiv2.pekpik.com/v1",
+  apiKey: process.env.CLAUDE_KEY!,
+});
 
-// Using HuggingFace router with featherless-ai provider
-const HF_ENDPOINT = `https://router.huggingface.co/v1/chat/completions`;
+const MODEL = "claude-opus-4-7";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,40 +20,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!HF_API_KEY) {
+    if (!process.env.CLAUDE_KEY) {
       return NextResponse.json(
-        { error: "HF_API_KEY missing in env" },
+        { error: "CLAUDE_KEY missing in env" },
         { status: 500 }
       );
     }
 
     // ── Build the payload ──────────────────────────────────────────────
-    const processedMessages = messages.map((m: any, idx: number) => {
-      if (m.role === "user" && idx === messages.length - 1) {
-        const content =
-          typeof m.content === "string" ? m.content : String(m.content ?? "");
-        // Append /no_think to suppress <think> tags and reasoning_content
-        const finalContent = content.includes("/no_think")
-          ? content
-          : `${content} /no_think`;
-        return { ...m, content: finalContent };
-      }
-      return m;
-    });
-
-    const payload: Record<string, any> = {
-      model: MODEL_ID,
-      messages: processedMessages,
+    const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
+      model: MODEL,
+      messages,
       max_tokens: 4096,
-      temperature: 0.6,
       stream: false,
     };
 
     if (tools && tools.length > 0) {
-      payload.tools = tools.map((t: any) => {
+      params.tools = tools.map((t: any) => {
         if (t.type === "function" && t.function) return t;
         return {
-          type: "function",
+          type: "function" as const,
           function: {
             name: t.name || t.function?.name,
             description: t.description || t.function?.description,
@@ -59,37 +47,21 @@ export async function POST(req: NextRequest) {
           },
         };
       });
-      payload.tool_choice = "auto";
+      params.tool_choice = "auto";
     }
 
-    console.log("→ HF request to:", HF_ENDPOINT);
-    console.log("→ Tools count:", payload.tools?.length ?? 0);
+    console.log("→ Claude request via pekpik, model:", MODEL);
+    console.log("→ Tools count:", params.tools?.length ?? 0);
 
-    const response = await fetch(HF_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${HF_API_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    // ── Call the API ───────────────────────────────────────────────────
+    const response = await client.chat.completions.create(params);
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("HF API error:", response.status, err);
-      return NextResponse.json(
-        { error: "HuggingFace API error", details: err },
-        { status: 500 }
-      );
-    }
+    console.log("← Response model:", response.model);
 
-    const hfResult = await response.json();
-    console.log("← HF raw response keys:", Object.keys(hfResult));
-
-    const choice = hfResult.choices?.[0];
+    const choice = response.choices?.[0];
     if (!choice) {
       return NextResponse.json(
-        { error: "No choices in HF response", raw: hfResult },
+        { error: "No choices in response", raw: response },
         { status: 500 }
       );
     }
@@ -98,47 +70,11 @@ export async function POST(req: NextRequest) {
     const finishReason = choice.finish_reason;
 
     // ── Extract text content ──────────────────────────────────────────
-    // Qwen models can return text in TWO places:
-    //   1. msg.content (normal response, especially with /no_think)
-    //   2. msg.reasoning_content (thinking mode — fallback if /no_think fails)
-    // We check both and combine if needed.
-
     const contentBlocks: any[] = [];
 
-    // Primary: msg.content
-    let textContent = msg.content ?? "";
-    
-    // Fallback to reasoning_content if content is null/empty
-    if (!textContent && msg.reasoning_content) {
-      console.log("⚠ content was null, falling back to reasoning_content");
-      textContent = msg.reasoning_content;
-    }
-
-    console.log("← msg.content length:", (msg.content ?? "").length);
-    console.log("← msg.reasoning_content length:", (msg.reasoning_content ?? "").length);
-    console.log("← textContent preview:", typeof textContent === "string" ? textContent.slice(0, 200) : typeof textContent);
-
+    const textContent = msg.content ?? "";
     if (typeof textContent === "string" && textContent.trim()) {
-      // Strip any <think>...</think> blocks but keep content outside them
-      let cleaned = textContent
-        .replace(/<think>[\s\S]*?<\/think>/g, "")
-        .trim();
-      
-      // If stripping removed everything, the actual content might be
-      // inside an unclosed <think> tag — try extracting after </think>
-      if (!cleaned && textContent.includes("</think>")) {
-        const afterThink = textContent.split("</think>").pop()?.trim() || "";
-        if (afterThink) cleaned = afterThink;
-      }
-      
-      // Last resort: if still empty, use the raw content without think tags
-      if (!cleaned) {
-        cleaned = textContent.replace(/<\/?think>/g, "").trim();
-      }
-      
-      if (cleaned) {
-        contentBlocks.push({ type: "output_text", text: cleaned });
-      }
+      contentBlocks.push({ type: "output_text", text: textContent.trim() });
     }
 
     // Build tool_call blocks if present
@@ -166,9 +102,9 @@ export async function POST(req: NextRequest) {
           tool_calls: msg.tool_calls ?? [],
         },
       ],
-      choices: hfResult.choices,
-      model: hfResult.model,
-      usage: hfResult.usage,
+      choices: response.choices,
+      model: response.model,
+      usage: response.usage,
       finish_reason: finishReason,
     };
 

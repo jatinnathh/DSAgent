@@ -45,7 +45,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
         request_id = getattr(request.state, "request_id", "unknown")
 
         logger.info(
-            f"{request.method} {request.url.path} → {response.status_code} ({duration_ms}ms)",
+            f"{request.method} {request.url.path} -> {response.status_code} ({duration_ms}ms)",
             extra={
                 "request_id": request_id,
                 "method": request.method,

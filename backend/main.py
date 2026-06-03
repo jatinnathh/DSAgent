@@ -233,7 +233,7 @@ async def upload_dataset(file: UploadFile = File(...)):
 
         logger.info("Dataset uploaded", extra={
             "session_id": metadata.session_id,
-            "filename": file.filename,
+            "file_name": file.filename,
             "rows": len(df),
             "columns": len(df.columns),
         })
