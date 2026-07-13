@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "https://aiapiv2.pekpik.com/v1",
-  apiKey: process.env.CLAUDE_KEY!,
+  baseURL: "https://api.groq.com/openai/v1",
+  apiKey: process.env.GROQ_KEY!,
 });
 
-const MODEL = "claude-opus-4-7";
+// Choose any Groq-supported model
+const MODEL = "llama-3.3-70b-versatile";
+// Other options:
+// "llama-3.1-8b-instant"
+// "meta-llama/llama-4-scout-17b-16e-instruct"
+// "openai/gpt-oss-120b"
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,14 +25,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.CLAUDE_KEY) {
+    if (!process.env.GROQ_KEY) {
       return NextResponse.json(
-        { error: "CLAUDE_KEY missing in env" },
+        { error: "GROQ_KEY missing in env" },
         { status: 500 }
       );
     }
 
-    // ── Build the payload ──────────────────────────────────────────────
     const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
       model: MODEL,
       messages,
@@ -38,6 +42,7 @@ export async function POST(req: NextRequest) {
     if (tools && tools.length > 0) {
       params.tools = tools.map((t: any) => {
         if (t.type === "function" && t.function) return t;
+
         return {
           type: "function" as const,
           function: {
@@ -47,18 +52,19 @@ export async function POST(req: NextRequest) {
           },
         };
       });
+
       params.tool_choice = "auto";
     }
 
-    console.log("→ Claude request via pekpik, model:", MODEL);
+    console.log("→ Groq request, model:", MODEL);
     console.log("→ Tools count:", params.tools?.length ?? 0);
 
-    // ── Call the API ───────────────────────────────────────────────────
     const response = await client.chat.completions.create(params);
 
     console.log("← Response model:", response.model);
 
     const choice = response.choices?.[0];
+
     if (!choice) {
       return NextResponse.json(
         { error: "No choices in response", raw: response },
@@ -67,33 +73,33 @@ export async function POST(req: NextRequest) {
     }
 
     const msg = choice.message;
-    const finishReason = choice.finish_reason;
 
-    // ── Extract text content ──────────────────────────────────────────
     const contentBlocks: any[] = [];
 
-    const textContent = msg.content ?? "";
-    if (typeof textContent === "string" && textContent.trim()) {
-      contentBlocks.push({ type: "output_text", text: textContent.trim() });
+    if (typeof msg.content === "string" && msg.content.trim()) {
+      contentBlocks.push({
+        type: "output_text",
+        text: msg.content.trim(),
+      });
     }
 
-    // Build tool_call blocks if present
     const toolCallBlocks: any[] = [];
-    if (msg.tool_calls && msg.tool_calls.length > 0) {
-      for (const tc of msg.tool_calls as any[]) {
+
+    if (msg.tool_calls?.length) {
+      for (const tc of msg.tool_calls) {
         toolCallBlocks.push({
           type: "tool_call",
           id: tc.id,
-          name: tc.function?.name,
+          name: tc.function.name,
           arguments:
-            typeof tc.function?.arguments === "string"
+            typeof tc.function.arguments === "string"
               ? tc.function.arguments
-              : JSON.stringify(tc.function?.arguments ?? {}),
+              : JSON.stringify(tc.function.arguments ?? {}),
         });
       }
     }
 
-    const normalised = {
+    return NextResponse.json({
       output: [
         {
           type: "message",
@@ -105,14 +111,16 @@ export async function POST(req: NextRequest) {
       choices: response.choices,
       model: response.model,
       usage: response.usage,
-      finish_reason: finishReason,
-    };
-
-    return NextResponse.json(normalised);
+      finish_reason: choice.finish_reason,
+    });
   } catch (err: any) {
-    console.error("LLM route error:", err);
+    console.error("Groq route error:", err);
+
     return NextResponse.json(
-      { error: "Internal error", details: err.message },
+      {
+        error: "Internal error",
+        details: err.message,
+      },
       { status: 500 }
     );
   }
