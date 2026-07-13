@@ -11,6 +11,7 @@ import * as THREE from "three";
 import AgentChat from "@/app/components/AgentChat";
 import PipelineBuilder from "@/app/components/PipelineBuilder";
 import StarfieldBg from "@/app/components/StarfieldBg";
+import LineSidebar from "@/app/components/LineSidebar";
 
 /* ─────────────────────────── DESIGN TOKENS ────────────────────────────── */
 const C = {
@@ -1517,6 +1518,20 @@ export default function DashboardClient({ user }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const sW = collapsed ? 60 : 228;
 
+  const navInfo = useMemo(() => {
+    const items: string[] = [];
+    const map: Record<string, string> = {};
+    NAV_GROUPS.forEach(g => {
+      g.items.forEach(i => {
+        items.push(i.label);
+        map[i.label] = i.id;
+      });
+    });
+    items.push("Settings");
+    map["Settings"] = "settings";
+    return { items, map };
+  }, []);
+
   const topbarTitle = activeView === "agent" ? "AI Analyst" : activeView === "pipelines" ? "Pipelines" : activeView === "models" ? "Trained Models" : activeView.charAt(0).toUpperCase() + activeView.slice(1);
 
   return (
@@ -1534,16 +1549,19 @@ export default function DashboardClient({ user }: Props) {
             <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
           </button>
         </div>
-        <nav style={{ flex: 1, padding: "8px 7px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>
-          {NAV_GROUPS.map(g => (
-            <div key={g.section}>
-              {!collapsed && <div style={{ fontSize: 9, fontWeight: 600, color: C.textMute, padding: "10px 10px 4px", letterSpacing: "0.09em" }}>{g.section}</div>}
-              {g.items.map(item => <NavBtn key={item.id} item={item} isActive={activeView === item.id} collapsed={collapsed} onClick={() => setActiveView(item.id)} />)}
-            </div>
-          ))}
-        </nav>
-        <div style={{ padding: "8px 7px", borderTop: `0.5px solid ${C.border}` }}>
-          <NavBtn item={{ id: "settings", label: "Settings", badge: null }} isActive={false} collapsed={collapsed} onClick={() => setActiveView("settings")} />
+        <div style={{ flex: 1, padding: "8px 0", overflowY: "auto", overflowX: "hidden" }}>
+          <LineSidebar
+            items={navInfo.items}
+            accentColor={C.cyan}
+            textColor={C.text}
+            markerColor={C.borderHi}
+            activeIndex={navInfo.items.findIndex(l => navInfo.map[l] === activeView)}
+            onItemClick={(index, label) => setActiveView(navInfo.map[label])}
+            collapsible={false}
+            collapsed={collapsed}
+            showIndex={!collapsed}
+            showMarker={!collapsed}
+          />
         </div>
         <div style={{ padding: "11px 13px 14px", borderTop: `0.5px solid ${C.border}`, display: "flex", alignItems: "center", gap: 9 }}>
           <UserButton />
