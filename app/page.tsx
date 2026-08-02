@@ -4,7 +4,7 @@
 import Link from "next/link";
 import React, { useRef, useState, useEffect, useMemo, Suspense } from "react";
 import { motion, useScroll, useTransform, useInView, MotionValue, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import { FaqAccordion } from "@/components/ui/faq-accordion";
@@ -341,6 +341,7 @@ function DataRobot({
   const head = useRef<THREE.Group>(null!);
   const orbitals = useRef<THREE.Group>(null!);
   const core = useRef<THREE.Mesh>(null!);
+  const { viewport } = useThree();
 
   const fragments = useMemo(
     () =>
@@ -369,7 +370,9 @@ function DataRobot({
     const eased = p * p * (3 - 2 * p); // smoothstep
 
     // START (top-left) → END (bottom-right)
-    const xTarget = THREE.MathUtils.lerp(-4, 4, eased);
+    const startX = -viewport.width / 2 + 1.8; // Relative to screen width
+    const endX = viewport.width / 2 - 1.8;
+    const xTarget = THREE.MathUtils.lerp(startX, endX, eased);
     const yTarget = THREE.MathUtils.lerp(0, -2, eased);
 
     // smooth movement
