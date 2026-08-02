@@ -7,6 +7,7 @@ import { motion, useScroll, useTransform, useInView, MotionValue, AnimatePresenc
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Stars } from "@react-three/drei";
 import * as THREE from "three";
+import { FaqAccordion } from "@/components/ui/faq-accordion";
 
 /* ═══════════════════════════════════════════════════════════════
    PROFESSIONAL INTRO — loader → mask reveal → 3D zoom handoff
@@ -885,7 +886,7 @@ export default function Home() {
 
           {/* Desktop nav links */}
           <div className="nav-links" style={{ display: "flex", gap: 2 }}>
-            {["Pipeline", "Features", "Demo"].map(label => (
+            {["Pipeline", "Features", "Demo", "FAQ"].map(label => (
               <a key={label} href={`#${label.toLowerCase()}`} data-hover style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", textDecoration: "none", padding: "6px 12px", borderRadius: 100, letterSpacing: "0.01em", transition: "color 0.2s, background 0.2s", whiteSpace: "nowrap" }}
                 onMouseEnter={e => { (e.currentTarget).style.color = "#fff"; (e.currentTarget).style.background = "rgba(255,255,255,0.07)"; }}
                 onMouseLeave={e => { (e.currentTarget).style.color = "rgba(255,255,255,0.4)"; (e.currentTarget).style.background = "transparent"; }}
@@ -915,7 +916,7 @@ export default function Home() {
 
         {/* ────────────────────── MOBILE MENU ────────────────────── */}
         <div className={`nav-mobile-menu${mobileMenuOpen ? " open" : ""}`} style={{ zIndex: 999 }}>
-          {["Pipeline", "Features", "Demo"].map(label => (
+          {["Pipeline", "Features", "Demo", "FAQ"].map(label => (
             <a key={label} href={`#${label.toLowerCase()}`} className="nav-mobile-link"
               onClick={() => setMobileMenuOpen(false)}
             >{label}</a>
@@ -1154,28 +1155,61 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ────────────────────── CTA ────────────────────── */}
-        <section style={{ padding: "80px 24px 140px", textAlign: "center", position: "relative", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 500, height: 500, background: "radial-gradient(circle,rgba(68,136,255,0.035) 0%,transparent 65%)", pointerEvents: "none" }} />
-          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }} style={{ position: "relative", zIndex: 2 }}>
-            <h2 style={{ fontFamily: "var(--serif)", fontSize: "clamp(48px, 9vw, 96px)", fontWeight: 400, letterSpacing: "-0.04em", color: "#fff", lineHeight: 0.96, marginBottom: 28 }}>
-              Start in<br /><em style={{ color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>seconds</em>
-            </h2>
-            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.32)", marginBottom: 44, maxWidth: 380, margin: "0 auto 44px" }}>
-              No code. No configuration. Upload your dataset and let DSAgent handle the rest.
-            </p>
-            <Link href="/dashboard" data-hover style={{
-              display: "inline-flex", alignItems: "center", gap: 10,
-              padding: "14px 34px", borderRadius: 100, background: "#fff", color: "#080808",
-              fontSize: 14, fontWeight: 600, textDecoration: "none", letterSpacing: "-0.01em",
-              transition: "opacity 0.2s, transform 0.2s",
-            }}
-              onMouseEnter={e => { e.currentTarget.style.opacity = "0.9"; e.currentTarget.style.transform = "scale(1.02)"; }}
-              onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)"; }}
+        {/* ────────────────────── FAQ & CTA SPLIT ────────────────────── */}
+        <section id="faq" style={{ padding: "80px 24px 120px", borderTop: "1px solid rgba(255,255,255,0.05)", maxWidth: 1080, margin: "0 auto", position: "relative" }}>
+          <div style={{ position: "absolute", top: "50%", right: "5%", transform: "translate(0,-50%)", width: 450, height: 450, background: "radial-gradient(circle,rgba(68,136,255,0.04) 0%,transparent 70%)", pointerEvents: "none" }} />
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+            {/* Left Column: FAQ Accordion */}
+            <motion.div 
+              className="lg:col-span-7"
+              initial={{ opacity: 0, y: 28 }} 
+              whileInView={{ opacity: 1, y: 0 }} 
+              viewport={{ once: true }} 
+              transition={{ duration: 0.6 }}
             >
-              Open DSAgent <span style={{ opacity: 0.38 }}>→</span>
-            </Link>
-          </motion.div>
+              <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", fontFamily: "var(--mono)", marginBottom: 16 }}>
+                FAQ
+              </div>
+              <h2 style={{ fontFamily: "var(--serif)", fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 400, letterSpacing: "-0.03em", color: "#fff", lineHeight: 1.1, marginBottom: 28 }}>
+                Frequently Asked<br /><em style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>Questions</em>
+              </h2>
+              <FaqAccordion className="w-full" />
+            </motion.div>
+
+            {/* Right Column: Start in Seconds CTA */}
+            <motion.div 
+              className="lg:col-span-5 lg:sticky lg:top-32"
+              initial={{ opacity: 0, y: 30 }} 
+              whileInView={{ opacity: 1, y: 0 }} 
+              viewport={{ once: true }} 
+              transition={{ duration: 0.8, delay: 0.1 }}
+              style={{ position: "relative", zIndex: 2 }}
+            >
+              <Glass style={{ padding: "44px 32px", borderRadius: 24, textAlign: "left", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", fontFamily: "var(--mono)", marginBottom: 16 }}>
+                  Get Started
+                </div>
+                <h2 style={{ fontFamily: "var(--serif)", fontSize: "clamp(36px, 4.5vw, 56px)", fontWeight: 400, letterSpacing: "-0.04em", color: "#fff", lineHeight: 0.98, marginBottom: 20 }}>
+                  Start in<br /><em style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>seconds</em>
+                </h2>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", marginBottom: 36, lineHeight: 1.7, maxWidth: 300 }}>
+                  No code. No configuration. Upload your dataset and let DSAgent handle the rest.
+                </p>
+                <Link href="/dashboard" data-hover style={{
+                  display: "inline-flex", alignItems: "center", gap: 10,
+                  padding: "14px 30px", borderRadius: 100, background: "#fff", color: "#080808",
+                  fontSize: 14, fontWeight: 600, textDecoration: "none", letterSpacing: "-0.01em",
+                  transition: "opacity 0.2s, transform 0.2s",
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.opacity = "0.9"; e.currentTarget.style.transform = "scale(1.02)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)"; }}
+                >
+                  Open DSAgent <span style={{ opacity: 0.38 }}>→</span>
+                </Link>
+              </Glass>
+            </motion.div>
+          </div>
         </section>
 
         {/* ────────────────────── FOOTER ────────────────────── */}
@@ -1185,8 +1219,8 @@ export default function Home() {
             DSAgent
           </div>
           <div style={{ display: "flex", gap: 24 }}>
-            {["Features", "Pipeline", "Dashboard", "GitHub"].map(l => (
-              <a key={l} href="#" data-hover style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none", letterSpacing: "0.02em", transition: "color 0.2s" }}
+            {["Features", "Pipeline", "FAQ", "Dashboard", "GitHub"].map(l => (
+              <a key={l} href={l === "FAQ" ? "#faq" : "#"} data-hover style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none", letterSpacing: "0.02em", transition: "color 0.2s" }}
                 onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.65)"}
                 onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.22)"}
               >{l}</a>
