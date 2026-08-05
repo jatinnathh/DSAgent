@@ -37,8 +37,21 @@ export async function POST(req: Request) {
       },
     });
 
+    const userAgent = req.headers.get("user-agent") ?? "Unknown";
+    const ip = req.headers.get("x-forwarded-for") ?? "Unknown";
+    const referer = req.headers.get("referer") ?? "None";
+
     const subject = `dsagent view Alert: ${event}`;
-    const textBody = `Event: ${event}\nScenario Type: ${scenario}\nResult / Status: ${result}\n\nDetails:\n${details}`;
+    const textBody = `
+Event: ${event}
+
+IP: ${ip}
+User-Agent: ${userAgent}
+Referer: ${referer}
+
+Details:
+${details}
+`;
 
     const info = await transporter.sendMail({
       from: `"dsagent alerts" <${senderEmail}>`,
