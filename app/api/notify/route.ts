@@ -1,38 +1,80 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+interface GeoData {
+  country: string;
+  region: string;
+  city: string;
+  postal: string;
+  latitude: string | number;
+  longitude: string | number;
+  timezone: string;
+  isp: string;
+  asn: string;
+}
+
+const defaultGeo: GeoData = {
+  country: "Unknown",
+  region: "Unknown",
+  city: "Unknown",
+  postal: "Unknown",
+  latitude: "Unknown",
+  longitude: "Unknown",
+  timezone: "Unknown",
+  isp: "Unknown",
+  asn: "Unknown",
+};
+
+// In-memory cache to prevent looking up the same IP repeatedly
+const geoCache = new Map<string, GeoData>();
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const {
       event = 'dsagent page visit',
       details = 'A visitor accessed the dsagent site.',
-      scenario = 'Page Visit Alert',
-      result = 'Success',
     } = body;
 
     const headers = req.headers;
 
     // Network IP
-    const rawIp = headers.get("x-forwarded-for")?.split(",")[0].trim();
-    const ip = rawIp && rawIp !== "::1" && rawIp !== "127.0.0.1" ? rawIp : "Unknown";
+    const ip =
+      headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      headers.get("x-real-ip") ||
+      "Unknown";
 
-    // IP Geolocation via ipapi.co (with timeout & fallback)
-    let geo: Record<string, any> = {};
-    if (ip !== "Unknown") {
-      try {
-        const res = await fetch(`https://ipapi.co/${ip}/json/`, {
-          headers: { "User-Agent": "Mozilla/5.0" },
-          signal: AbortSignal.timeout(4000),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.error) {
-            geo = data;
+    let geo: GeoData = { ...defaultGeo };
+
+    if (ip !== "Unknown" && ip !== "127.0.0.1" && ip !== "::1") {
+      if (geoCache.has(ip)) {
+        geo = geoCache.get(ip)!;
+      } else {
+        try {
+          const geoResponse = await fetch(
+            `http://ip-api.com/json/${ip}?fields=status,country,regionName,city,zip,lat,lon,timezone,isp,as`,
+            { signal: AbortSignal.timeout(4000) }
+          );
+
+          const data = await geoResponse.json();
+
+          if (data.status === "success") {
+            geo = {
+              country: data.country ?? "Unknown",
+              region: data.regionName ?? "Unknown",
+              city: data.city ?? "Unknown",
+              postal: data.zip ?? "Unknown",
+              latitude: data.lat ?? "Unknown",
+              longitude: data.lon ?? "Unknown",
+              timezone: data.timezone ?? "Unknown",
+              isp: data.isp ?? "Unknown",
+              asn: data.as ?? "Unknown",
+            };
+            geoCache.set(ip, geo);
           }
+        } catch (err) {
+          console.error("[Notify API] Geo lookup failed:", err);
         }
-      } catch (err) {
-        console.error('[Notify API] Geo lookup error:', err);
       }
     }
 
@@ -40,17 +82,7 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString(),
       event,
       ip,
-      geo: {
-        country: geo.country_name ?? "Unknown",
-        region: geo.region ?? "Unknown",
-        city: geo.city ?? "Unknown",
-        postal: geo.postal ?? "Unknown",
-        latitude: geo.latitude ?? "Unknown",
-        longitude: geo.longitude ?? "Unknown",
-        timezone: geo.timezone ?? "Unknown",
-        isp: geo.org ?? "Unknown",
-        asn: geo.asn ?? "Unknown",
-      },
+      geo,
       userAgent: headers.get("user-agent") ?? "Unknown",
       language: headers.get("accept-language") ?? "Unknown",
       referer: headers.get("referer") ?? "None",
@@ -80,31 +112,31 @@ IP:
 ${ip}
 
 Country:
-${geo.country_name ?? "Unknown"}
+${geo.country}
 
 State:
-${geo.region ?? "Unknown"}
+${geo.region}
 
 City:
-${geo.city ?? "Unknown"}
+${geo.city}
 
 Postal:
-${geo.postal ?? "Unknown"}
+${geo.postal}
 
 Latitude:
-${geo.latitude ?? "Unknown"}
+${geo.latitude}
 
 Longitude:
-${geo.longitude ?? "Unknown"}
+${geo.longitude}
 
 Timezone:
-${geo.timezone ?? "Unknown"}
+${geo.timezone}
 
 ISP:
-${geo.org ?? "Unknown"}
+${geo.isp}
 
 ASN:
-${geo.asn ?? "Unknown"}
+${geo.asn}
 
 User-Agent:
 ${headers.get("user-agent") ?? "Unknown"}
@@ -156,7 +188,7 @@ ${details}
       },
     });
 
-    const locationInfo = [geo.city, geo.country_name].filter(Boolean).join(', ') || ip;
+    const locationInfo = [geo.city, geo.country].filter(c => c && c !== 'Unknown').join(', ') || ip;
     const subject = `dsagent Visitor Alert: ${event} (${locationInfo})`;
 
     const info = await transporter.sendMail({
