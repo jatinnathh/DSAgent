@@ -16,29 +16,29 @@ export interface FaqAccordionProps
 
 const DEFAULT_ITEMS: FaqItem[] = [
   {
-    question: "What is Vengeance UI?",
+    question: "What is DSAgent?",
     answer:
-      "Vengeance UI is a high-performance, dark-mode first component library designed for the next generation of web applications.",
+      "DSAgent is an autonomous AI-powered data science platform that analyzes CSV datasets, cleans data, generates visualizations, trains machine learning models, and creates detailed reports automatically.",
   },
   {
-    question: "Can I use it with Tailwind CSS?",
+    question: "Do I need machine learning experience to use DSAgent?",
     answer:
-      "Yes! All components are built on top of Tailwind CSS and highly customizable using utility classes.",
+      "No. Simply upload your dataset and DSAgent handles data cleaning, exploratory analysis, feature engineering, model training, evaluation, and report generation without requiring coding knowledge.",
   },
   {
-    question: "Are the components accessible?",
+    question: "What file formats does DSAgent support?",
     answer:
-      "Accessibility is a core focus. We ensure proper ARIA attributes, keyboard navigation, and semantic HTML structure.",
+      "Currently, DSAgent supports CSV datasets. After uploading, the AI automatically extracts metadata, analyzes your data, and provides insights through interactive visualizations and machine learning pipelines.",
   },
   {
-    question: "Do I need to install a heavy npm package?",
+    question: "Can I build my own data science pipeline?",
     answer:
-      "No. Vengeance UI provides a CLI that lets you copy and paste only the components you need directly into your project.",
+      "Yes. Along with the one-click autonomous workflow, DSAgent includes a drag-and-drop Pipeline Builder where you can customize every step, configure tools, and save reusable workflows.",
   },
   {
-    question: "Is it compatible with React and Next.js?",
+    question: "Can I download trained models and reports?",
     answer:
-      "Absolutely. The library is built with React in mind and perfectly supports Next.js Server Components and client-side rendering.",
+      "Absolutely. DSAgent automatically saves the best-performing machine learning model, lets you download it as a deployment-ready bundle, and generates PDF reports that can also be emailed directly to you.",
   },
 ];
 

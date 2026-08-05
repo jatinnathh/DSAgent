@@ -364,28 +364,30 @@ function DataRobot({
     const mouse = mouseRef.current;
 
     // pipeline scroll (0 → 1)
-    const p = pipelineScroll.get();
+    const p = Math.max(0, Math.min(1, pipelineScroll?.get() ?? 0));
 
     // smooth motion and speed boost
     const eased = p * p * (3 - 2 * p); // smoothstep
 
     // START (top-left) → END (bottom-right)
-    const startX = -viewport.width / 2 + 1.8; // Relative to screen width
-    const endX = viewport.width / 2 - 1.8;
+    // Clamp startX & endX so camera frustum changes at start never push the robot off-screen
+    const startX = THREE.MathUtils.clamp(-viewport.width * 0.5, -3.1, -2.2);
+    const endX = THREE.MathUtils.clamp(viewport.width * 0.5, 2.2, 3.1);
+
     const xTarget = THREE.MathUtils.lerp(startX, endX, eased);
-    const yTarget = THREE.MathUtils.lerp(0, -2, eased);
+    const yTarget = THREE.MathUtils.lerp(0.1, -1.8, eased);
 
     // smooth movement
     group.current.position.x = THREE.MathUtils.lerp(
       group.current.position.x,
       xTarget,
-      0.06
+      0.08
     );
 
     group.current.position.y = THREE.MathUtils.lerp(
       group.current.position.y,
       yTarget,
-      0.06
+      0.08
     );
 
     // tilt while moving
@@ -396,7 +398,7 @@ function DataRobot({
     group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, targetY, 0.045);
 
     // float
-    const float = Math.sin(t * 0.3) * 0.05 * p;
+    const float = Math.sin(t * 0.3) * 0.05 * (p + 0.5);
     group.current.position.y += float;
 
     // head tracks mouse
@@ -420,7 +422,7 @@ function DataRobot({
   const A = { color: "#4c1d95", metalness: 0.85, roughness: 0.15 };
 
   return (
-    <group ref={group} position={[-2.4, -1.9, 0]} scale={0.82}>
+    <group ref={group} position={[-2.5, 0.1, 0]} scale={0.82}>
       {/* ──── HEAD ──── */}
       <group ref={head} position={[0, 2.2, 0]}>
         <mesh><boxGeometry args={[0.72, 0.62, 0.68]} /><meshStandardMaterial {...D} /></mesh>
@@ -700,9 +702,6 @@ const DEMO_LINES = [
   { text: "→ Best: XGBoost  R²=0.913  RMSE=$18,420", delay: 8200 },
 ];
 
-/* ═══════════════════════════════════════════════════════════════
-   MAIN PAGE EXPORT
-   ═══════════════════════════════════════════════════════════════ */
 export default function Home() {
   /* ── scroll + mouse refs for 3D scene (no re-renders) ── */
   const scrollRef = useRef(0);
@@ -710,11 +709,7 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [introComplete, setIntroComplete] = useState(false);
   const pipelineRef = useRef<HTMLDivElement>(null);
-
-  const { scrollYProgress: pipelineScroll } = useScroll({
-    target: pipelineRef,
-    offset: ["start end", "end start"],
-  });
+  const { scrollYProgress: pipelineScroll } = useScroll();
 
   // Intro zoom: 0 → 1 after intro completes, drives CameraRig
   const introZoomTarget = useMotionValue(0);
