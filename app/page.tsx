@@ -253,30 +253,7 @@ function IntroOverlay({ onComplete }: { onComplete: () => void }) {
 
 
 
-/* ═══════════════════════════════════════════════════════════════
-   UI — CUSTOM CURSOR
-   ═══════════════════════════════════════════════════════════════ */
-function Cursor() {
-  const [pos, setPos] = useState({ x: -100, y: -100 });
-  const [hov, setHov] = useState(false);
-  useEffect(() => {
-    const move = (e: MouseEvent) => setPos({ x: e.clientX, y: e.clientY });
-    const over = (e: MouseEvent) => { const t = e.target as HTMLElement; setHov(!!(t.closest("a,button,[data-hover]"))); };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseover", over);
-    return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseover", over); };
-  }, []);
-  return (
-    <>
-      <motion.div style={{ position: "fixed", zIndex: 9999, pointerEvents: "none", top: 0, left: 0 }} animate={{ x: pos.x - (hov ? 20 : 8), y: pos.y - (hov ? 20 : 8) }} transition={{ type: "spring", stiffness: 800, damping: 40, mass: 0.3 }}>
-        <div style={{ width: hov ? 40 : 16, height: hov ? 40 : 16, borderRadius: "50%", border: `1.5px solid ${hov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)"}`, background: hov ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)", backdropFilter: "blur(4px)", transition: "width 0.2s,height 0.2s,background 0.2s,border-color 0.2s" }} />
-      </motion.div>
-      <motion.div style={{ position: "fixed", zIndex: 9998, pointerEvents: "none", top: 0, left: 0 }} animate={{ x: pos.x - 2, y: pos.y - 2 }} transition={{ type: "spring", stiffness: 2000, damping: 60 }}>
-        <div style={{ width: 4, height: 4, borderRadius: "50%", background: "white" }} />
-      </motion.div>
-    </>
-  );
-}
+
 
 /* ═══════════════════════════════════════════════════════════════
    UI — GRAIN OVERLAY
@@ -479,7 +456,7 @@ export default function Home() {
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&family=Geist:wght@300;400;500;600;700&display=swap');
         :root{--serif:'Instrument Serif',Georgia,serif;--mono:'JetBrains Mono',monospace;--sans:'Geist',system-ui,sans-serif}
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        html{scroll-behavior:smooth;cursor:none}
+        html{scroll-behavior:smooth}
         body{background:#080808;color:#f0f0f0;font-family:var(--sans);overflow-x:hidden;-webkit-font-smoothing:antialiased}
         ::selection{background:rgba(255,255,255,0.12)}
         ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:#080808}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
@@ -542,7 +519,6 @@ export default function Home() {
       }} />
 
       <Grain />
-      <Cursor />
 
       {/* ═════ ALL CONTENT (above 3D) — fades in after intro ═════ */}
       <motion.div
@@ -654,10 +630,7 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.4 }}
               style={{ display: "inline-flex", alignItems: "center", marginBottom: 44 }}
             >
-              <Glass style={{ padding: "6px 16px", borderRadius: 100, display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.7)", animation: "pulse-dot 2.5s ease-out infinite" }} />
-                <span style={{ fontSize: 10.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", fontFamily: "var(--mono)" }}>Public Beta</span>
-              </Glass>
+            
             </motion.div>
 
             {/* headline */}

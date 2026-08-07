@@ -237,25 +237,7 @@ A
 
 ---
 
-### Landing Page
 
-A premium, immersive landing page built with **React Three Fiber** and **Framer Motion**.
-
-**Visual elements:**
-- **3D Data Robot** — A fully modeled robot character with animated visor, orbital rings, glowing core, mouse-tracking head movement, scroll-driven rotation, and dissolving fragment particles.
-- **Particle field + Stars** — Deep-space ambient background.
-- **Custom cursor** — Dual-ring cursor with hover expansion.
-- **Holographic scanlines** — Subtle CRT-style overlay with film grain texture.
-
-**Content sections:**
-- Hero with animated headline, status pill, and floating glass cards
-- Horizontal scroll pipeline explorer (5 steps: Upload, Clean, Analyse, Model, Deploy)
-- Terminal demo with typewriter animation showing a real analysis flow
-- Feature grid (6 cards: AI Analyst, Pipeline Builder, AutoML, Explainability, Session Memory, Dark Charts)
-- Tech stack showcase grid
-- CTA section with animated gradient glow
-
----
 
 ### Dashboard
 
