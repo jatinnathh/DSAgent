@@ -1059,10 +1059,6 @@ def auto_ml_pipeline(
     problem_type = _detect_problem_type(df, target_column)
     X, y = _prepare_X_y(df, target_column)
 
-    if problem_type == "classification":
-        le = LabelEncoder()
-        y = pd.Series(le.fit_transform(y), index=y.index)
-
     strat = y if problem_type == "classification" else None
     X_train, X_test, y_train, y_test = tts(
         X, y, test_size=ts, random_state=42, stratify=strat
@@ -1154,11 +1150,6 @@ def auto_ml_pipeline(
     # ── Comparison chart ────────────────────────────────────────────────────
     plt.close("all")
     valid = {n: r for n, r in results.items() if "error" not in r}
-    
-    if not valid:
-        error_msgs = {k: v.get("error") for k, v in results.items()}
-        raise ValueError(f"All models failed during training. Errors: {error_msgs}")
-
     metric_key = "accuracy" if problem_type == "classification" else "r2_score"
     names = list(valid.keys())
     scores = [valid[n][metric_key] for n in names]

@@ -198,10 +198,6 @@ def auto_ml_pipeline(
     # Prepare features
     X, y = _prepare_features(df, target_column)
     
-    if problem_type == "classification":
-        le = LabelEncoder()
-        y = pd.Series(le.fit_transform(y), index=y.index)
-    
     if len(X) < 10:
         raise ValueError("Need at least 10 samples for training")
     

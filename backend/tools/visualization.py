@@ -284,11 +284,12 @@ def create_box_plot(session_id: str, column: Optional[str] = None,
 
     if group_by and group_by in df.columns:
         groups = df[group_by].dropna().unique()[:12]
-        ax.boxplot([df[df[group_by] == g][column].dropna().values for g in groups], **bp_kw)
+        ax.boxplot([df[df[group_by] == g][column].dropna().values for g in groups],
+                   labels=[str(g) for g in groups], **bp_kw)
         ax.set_xlabel(group_by, color='#8C8C8C')
         ax.set_xticklabels([str(g) for g in groups], rotation=30, ha='right', color='#8C8C8C')
     else:
-        ax.boxplot(df[column].dropna().values, **bp_kw)
+        ax.boxplot(df[column].dropna().values, labels=[column], **bp_kw)
         ax.set_xticklabels([column], color='#8C8C8C')
 
     ax.set_title(title or f'Box Plot – {column}' + (f' by {group_by}' if group_by else ''),

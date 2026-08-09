@@ -49,3 +49,20 @@ next-env.d.ts
 # logs
 /logs/
 /backend/logs/
+
+# Generated backend files
+backend/sessions/
+backend/reports/
+backend/models/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Environment
+.env
+venv/
+.venv/
+
+# OS
+.DS_Store
