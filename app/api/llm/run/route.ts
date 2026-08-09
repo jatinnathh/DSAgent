@@ -13,6 +13,28 @@ const MODEL = "llama-3.3-70b-versatile";
 // "meta-llama/llama-4-scout-17b-16e-instruct"
 // "openai/gpt-oss-120b"
 
+const MAX_RETRIES = 3;
+
+/** Exponential backoff sleep */
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Check if an error is retryable (rate-limit or server error) */
+function isRetryable(err: any): boolean {
+  if (!err) return false;
+  const status = err.status ?? err.statusCode ?? err?.response?.status;
+  if (status === 429 || (status >= 500 && status < 600)) return true;
+  const msg = (err.message || "").toLowerCase();
+  return (
+    msg.includes("rate limit") ||
+    msg.includes("timeout") ||
+    msg.includes("503") ||
+    msg.includes("529") ||
+    msg.includes("overloaded")
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -59,60 +81,88 @@ export async function POST(req: NextRequest) {
     console.log("→ Groq request, model:", MODEL);
     console.log("→ Tools count:", params.tools?.length ?? 0);
 
-    const response = await client.chat.completions.create(params);
+    // ── Retry loop with exponential backoff ──
+    let lastError: any = null;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const response = await client.chat.completions.create(params);
 
-    console.log("← Response model:", response.model);
+        console.log("← Response model:", response.model);
 
-    const choice = response.choices?.[0];
+        const choice = response.choices?.[0];
 
-    if (!choice) {
-      return NextResponse.json(
-        { error: "No choices in response", raw: response },
-        { status: 500 }
-      );
-    }
+        if (!choice) {
+          // No choices — might be a transient issue, retry
+          if (attempt < MAX_RETRIES - 1) {
+            const waitMs = 1000 * 2 ** attempt;
+            console.warn(`← No choices in response, retrying in ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+            await sleep(waitMs);
+            continue;
+          }
+          return NextResponse.json(
+            { error: "No choices in response", raw: response },
+            { status: 500 }
+          );
+        }
 
-    const msg = choice.message;
+        const msg = choice.message;
 
-    const contentBlocks: any[] = [];
+        const contentBlocks: any[] = [];
 
-    if (typeof msg.content === "string" && msg.content.trim()) {
-      contentBlocks.push({
-        type: "output_text",
-        text: msg.content.trim(),
-      });
-    }
+        if (typeof msg.content === "string" && msg.content.trim()) {
+          contentBlocks.push({
+            type: "output_text",
+            text: msg.content.trim(),
+          });
+        }
 
-    const toolCallBlocks: any[] = [];
+        const toolCallBlocks: any[] = [];
 
-    if (msg.tool_calls?.length) {
-      for (const tc of msg.tool_calls as any[]) {
-        toolCallBlocks.push({
-          type: "tool_call",
-          id: tc.id,
-          name: tc.function.name,
-          arguments:
-            typeof tc.function.arguments === "string"
-              ? tc.function.arguments
-              : JSON.stringify(tc.function.arguments ?? {}),
+        if (msg.tool_calls?.length) {
+          for (const tc of msg.tool_calls as any[]) {
+            toolCallBlocks.push({
+              type: "tool_call",
+              id: tc.id,
+              name: tc.function.name,
+              arguments:
+                typeof tc.function.arguments === "string"
+                  ? tc.function.arguments
+                  : JSON.stringify(tc.function.arguments ?? {}),
+            });
+          }
+        }
+
+        return NextResponse.json({
+          output: [
+            {
+              type: "message",
+              role: "assistant",
+              content: [...contentBlocks, ...toolCallBlocks],
+              tool_calls: msg.tool_calls ?? [],
+            },
+          ],
+          choices: response.choices,
+          model: response.model,
+          usage: response.usage,
+          finish_reason: choice.finish_reason,
         });
+      } catch (retryErr: any) {
+        lastError = retryErr;
+        if (isRetryable(retryErr) && attempt < MAX_RETRIES - 1) {
+          const waitMs = 1000 * 2 ** attempt;
+          console.warn(
+            `← Groq retryable error (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${waitMs}ms:`,
+            retryErr.message
+          );
+          await sleep(waitMs);
+          continue;
+        }
+        throw retryErr; // non-retryable or exhausted retries
       }
     }
 
-    return NextResponse.json({
-      output: [
-        {
-          type: "message",
-          role: "assistant",
-          content: [...contentBlocks, ...toolCallBlocks],
-          tool_calls: msg.tool_calls ?? [],
-        },
-      ],
-      choices: response.choices,
-      model: response.model,
-      usage: response.usage,
-      finish_reason: choice.finish_reason,
-    });
+    // If we exhaust retries without returning
+    throw lastError || new Error("Exhausted retries without a response");
   } catch (err: any) {
     console.error("Groq route error:", err);
 

@@ -210,19 +210,29 @@ tool_registry.register(
 # ════════════════════════════════════════════════════════════════════════════
 
 def log_transform(session_id: str, column: str) -> Dict[str, Any]:
-    """Apply log1p to reduce right-skew."""
+    """Apply log1p to reduce right-skew. Auto-shifts negatives instead of crashing."""
     df = get_dataframe(session_id)
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found")
     if not pd.api.types.is_numeric_dtype(df[column]):
         raise ValueError(f"Column '{column}' must be numeric")
-    if (df[column].dropna() < 0).any():
-        raise ValueError(f"Column '{column}' contains negative values — cannot apply log")
+
+    shift_applied = 0.0
+    col_min = df[column].dropna().min()
+    if col_min < 0:
+        # Auto-shift: move all values up so minimum becomes 0, then apply log1p
+        shift_applied = abs(col_min) + 1
+        df[column] = df[column] + shift_applied
+        print(f"[log_transform] Column '{column}' had negatives (min={col_min}). Auto-shifted by +{shift_applied}")
 
     skew_before = round(float(df[column].skew()), 4)
     df[column] = np.log1p(df[column])
     skew_after = round(float(df[column].skew()), 4)
     update_dataframe(session_id, df)
+
+    note = "log1p(x) applied. Distribution is now more symmetric."
+    if shift_applied:
+        note = f"Values shifted by +{shift_applied} (had negatives), then log1p applied."
 
     return {
         "transform": "log1p",
@@ -230,7 +240,8 @@ def log_transform(session_id: str, column: str) -> Dict[str, Any]:
         "skewness_before": skew_before,
         "skewness_after": skew_after,
         "improvement": round(abs(skew_before) - abs(skew_after), 4),
-        "note": "log1p(x) applied. Distribution is now more symmetric.",
+        "shift_applied": shift_applied,
+        "note": note,
     }
 
 tool_registry.register(
@@ -1217,3 +1228,35 @@ tool_registry.register(
     },
     function=auto_ml_pipeline,
 )
+
+# ════════════════════════════════════════════════════════════════════════════
+# ALIASES — catch common LLM hallucinations
+# ════════════════════════════════════════════════════════════════════════════
+
+tool_registry.register_alias("remove_column", "drop_columns")
+tool_registry.register_alias("remove_columns", "drop_columns")
+tool_registry.register_alias("delete_column", "drop_columns")
+tool_registry.register_alias("delete_columns", "drop_columns")
+tool_registry.register_alias("drop_column", "drop_columns")
+tool_registry.register_alias("encode_categorical", "one_hot_encode")
+tool_registry.register_alias("encode_one_hot", "one_hot_encode")
+tool_registry.register_alias("normalize", "standard_scaler")
+tool_registry.register_alias("standardize", "standard_scaler")
+tool_registry.register_alias("scale_features", "standard_scaler")
+tool_registry.register_alias("train_model", "auto_ml_pipeline")
+tool_registry.register_alias("train_models", "auto_ml_pipeline")
+tool_registry.register_alias("build_model", "auto_ml_pipeline")
+tool_registry.register_alias("impute_missing", "fill_missing_values")
+tool_registry.register_alias("fill_na", "fill_missing_values")
+tool_registry.register_alias("fillna", "fill_missing_values")
+tool_registry.register_alias("handle_missing", "fill_missing_values")
+tool_registry.register_alias("remove_missing", "fill_missing_values")
+tool_registry.register_alias("check_missing", "detect_missing_values")
+tool_registry.register_alias("missing_values", "detect_missing_values")
+tool_registry.register_alias("plot_histogram", "create_histogram")
+tool_registry.register_alias("plot_bar", "create_bar_chart")
+tool_registry.register_alias("plot_scatter", "create_scatter_plot")
+tool_registry.register_alias("plot_heatmap", "create_correlation_heatmap")
+tool_registry.register_alias("plot_box", "create_box_plot")
+tool_registry.register_alias("evaluate_model", "model_evaluation")
+tool_registry.register_alias("eval_model", "model_evaluation")

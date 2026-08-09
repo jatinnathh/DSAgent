@@ -249,4 +249,4 @@ print(f"   - Modeling: 6 tools")
 print(f"   - Agent: 1 tool")
 
 print(f"\n🚀 DSAgent is ready to autonomously analyze datasets!")
-print(f"💡 The agent will use Bytez API → GPT-4o to orchestrate all {len(all_tools)} tools")
+print(f"💡 The agent will use Bytez API -> GPT-4o to orchestrate all {len(all_tools)} tools")

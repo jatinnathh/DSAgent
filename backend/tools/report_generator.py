@@ -129,7 +129,7 @@ def _clean_md(text: str) -> str:
         return ""
     # Remove think tags
     text = re.sub(r'<think>[\s\S]*?</think>', '', text)
-    # Headers → just the text
+    # Headers -> just the text
     text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
     # Bold/italic
     text = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', text)
@@ -141,9 +141,9 @@ def _clean_md(text: str) -> str:
     text = re.sub(r'`([^`]+)`', r'\1', text)
     # Code blocks
     text = re.sub(r'```[\s\S]*?```', '', text)
-    # Links [text](url) → text
-    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
-    # Bullet markers → clean dash
+    # Links [text](url) -> text
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    # Bullet markers -> clean dash
     text = re.sub(r'^\s*[-*+]\s+', '• ', text, flags=re.MULTILINE)
     # Numbered list cleanup
     text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
