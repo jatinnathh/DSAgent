@@ -129,21 +129,21 @@ def fill_missing_values(
         if not pd.api.types.is_numeric_dtype(df[column]):
             raise ValueError(f"Cannot use mean strategy on non-numeric column '{column}'")
         fill_value = df[column].mean()
-        df[column].fillna(fill_value, inplace=True)
+        df[column] = df[column].fillna(fill_value)
         action = f"Filled with mean: {fill_value:.2f}"
         
     elif strategy == "median":
         if not pd.api.types.is_numeric_dtype(df[column]):
             raise ValueError(f"Cannot use median strategy on non-numeric column '{column}'")
         fill_value = df[column].median()
-        df[column].fillna(fill_value, inplace=True)
+        df[column] = df[column].fillna(fill_value)
         action = f"Filled with median: {fill_value:.2f}"
         
     elif strategy == "mode":
         mode_value = df[column].mode()
         if len(mode_value) > 0:
             fill_value = mode_value[0]
-            df[column].fillna(fill_value, inplace=True)
+            df[column] = df[column].fillna(fill_value)
             action = f"Filled with mode: {fill_value}"
         else:
             action = "No mode found, no changes made"
