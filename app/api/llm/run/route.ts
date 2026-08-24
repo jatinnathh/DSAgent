@@ -2,16 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "https://api.groq.com/openai/v1",
-  apiKey: process.env.GROQ_KEY!,
+  baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+  apiKey: process.env.GEMINI_API_KEY || "",
 });
 
-// Choose any Groq-supported model
-const MODEL = "llama-3.3-70b-versatile";
-// Other options:
-// "llama-3.1-8b-instant"
-// "meta-llama/llama-4-scout-17b-16e-instruct"
-// "openai/gpt-oss-120b"
+const MODEL = "gemini-3.6-flash";
 
 const MAX_RETRIES = 3;
 
@@ -47,9 +42,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.GROQ_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "GROQ_KEY missing in env" },
+        { error: "GEMINI_API_KEY missing in env" },
         { status: 500 }
       );
     }
@@ -78,7 +73,7 @@ export async function POST(req: NextRequest) {
       params.tool_choice = "auto";
     }
 
-    console.log("→ Groq request, model:", MODEL);
+    console.log("→ Gemini request, model:", MODEL);
     console.log("→ Tools count:", params.tools?.length ?? 0);
 
     // ── Retry loop with exponential backoff ──
@@ -151,7 +146,7 @@ export async function POST(req: NextRequest) {
         if (isRetryable(retryErr) && attempt < MAX_RETRIES - 1) {
           const waitMs = 1000 * 2 ** attempt;
           console.warn(
-            `← Groq retryable error (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${waitMs}ms:`,
+            `← Gemini retryable error (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${waitMs}ms:`,
             retryErr.message
           );
           await sleep(waitMs);
@@ -164,7 +159,7 @@ export async function POST(req: NextRequest) {
     // If we exhaust retries without returning
     throw lastError || new Error("Exhausted retries without a response");
   } catch (err: any) {
-    console.error("Groq route error:", err);
+    console.error("Gemini route error:", err);
 
     return NextResponse.json(
       {

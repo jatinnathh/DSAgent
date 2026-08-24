@@ -84,6 +84,21 @@ const LineSidebar = ({
   const smoothingRef = useRef(smoothing);
   const [internalActiveIndex, setInternalActiveIndex] = useState(defaultActive);
 
+  // Initialize targets and currents to avoid 0-to-1 animation on mount
+  useEffect(() => {
+    if (targetsRef.current.length === 0) {
+      targetsRef.current = items.map((_, i) => (i === activeRef.current ? 1 : 0));
+      currentRef.current = items.map((_, i) => (i === activeRef.current ? 1 : 0));
+      
+      // Apply initial styles immediately
+      items.forEach((_, i) => {
+        if (itemRefs.current[i]) {
+          itemRefs.current[i]!.style.setProperty('--effect', String(currentRef.current[i]));
+        }
+      });
+    }
+  }, [items]);
+
   const activeIndex = controlledActiveIndex !== undefined ? controlledActiveIndex : internalActiveIndex;
 
   activeRef.current = activeIndex;
@@ -98,8 +113,9 @@ const LineSidebar = ({
   // Single rAF loop that eases every item's --effect toward its target using
   // frame-rate independent exponential smoothing, so color, shift and scale
   // all move together without staggering CSS transitions.
-  const runFrame = useCallback((now: number) => {
-    const dt = Math.min((now - lastRef.current) / 1000, 0.05);
+  const runFrame = useCallback(() => {
+    const now = performance.now();
+    const dt = Math.max(0, Math.min((now - lastRef.current) / 1000, 0.05));
     lastRef.current = now;
     const tau = Math.max(smoothingRef.current, 1) / 1000;
     const k = 1 - Math.exp(-dt / tau);
@@ -119,7 +135,11 @@ const LineSidebar = ({
       if (!settled) moving = true;
     }
 
-    rafRef.current = moving ? requestAnimationFrame(runFrame) : null;
+    if (moving) {
+      rafRef.current = requestAnimationFrame(runFrame);
+    } else {
+      rafRef.current = null;
+    }
   }, []);
 
   const startLoop = useCallback(() => {
@@ -170,7 +190,10 @@ const LineSidebar = ({
 
   useEffect(() => {
     return () => {
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
   }, []);
 
