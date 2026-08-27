@@ -427,6 +427,18 @@ export default function Home() {
   /* ── nav scroll state ── */
   const [navScrolled, setNavScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [catPop, setCatPop] = useState<{ id: number; x: number; y: number } | null>(null);
+
+  const handleWatchDemoClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const x = e.clientX;
+    const y = e.clientY;
+    const id = Date.now();
+    setCatPop({ id, x, y });
+    setTimeout(() => {
+      setCatPop(curr => (curr?.id === id ? null : curr));
+    }, 500);
+  };
+
   useEffect(() => { const fn = () => setNavScrolled(window.scrollY > 70); window.addEventListener("scroll", fn); return () => window.removeEventListener("scroll", fn); }, []);
   // Close mobile menu on route changes / scroll
   useEffect(() => { if (mobileMenuOpen) setMobileMenuOpen(false); }, [navScrolled]);
@@ -649,7 +661,10 @@ export default function Home() {
                 onMouseEnter={e => { e.currentTarget.style.opacity = "0.9"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                 onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}
               >Start Analysing <span style={{ opacity: 0.45 }}>→</span></Link>
-              <button data-hover style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "12px 26px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.65)", fontSize: 13, cursor: "pointer", letterSpacing: "-0.01em", transition: "border-color 0.2s, color 0.2s" }}
+              <button
+                onClick={handleWatchDemoClick}
+                data-hover
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "12px 26px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.65)", fontSize: 16, cursor: "pointer", letterSpacing: "-0.01em", transition: "border-color 0.2s, color 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.22)"; e.currentTarget.style.color = "#fff"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "rgba(255,255,255,0.65)"; }}
               >▶ Watch Demo</button>
@@ -928,6 +943,41 @@ export default function Home() {
           </div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", fontFamily: "var(--mono)" }}>© 2025 DSAgent</div>
         </footer>
+
+        {/* Cat pop-up near cursor for 0.5s */}
+        <AnimatePresence>
+          {catPop && (
+            <motion.div
+              key={catPop.id}
+              initial={{ opacity: 0, scale: 0.3, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.7, y: -15 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              style={{
+                position: "fixed",
+                left: catPop.x,
+                top: catPop.y,
+                transform: "translate(-50%, -100%)",
+                zIndex: 999999,
+                pointerEvents: "none",
+                marginTop: -20,
+              }}
+            >
+              <img
+                src="/cat.png"
+                alt="Cat Pop"
+                style={{
+                  width: 300,
+                  height: "auto",
+                  maxWidth: "none",
+                  borderRadius: 18,
+                  boxShadow: "0 20px 50px rgba(0,0,0,0.6), 0 0 30px rgba(68,136,255,0.25)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       </motion.div>{/* end content wrapper */}
     </>
