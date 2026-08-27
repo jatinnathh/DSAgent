@@ -557,7 +557,7 @@ export default function Home() {
 
           {/* Desktop nav links */}
           <div className="nav-links" style={{ display: "flex", gap: 2 }}>
-            {["Pipeline", "Features", "Demo", "FAQ"].map(label => (
+            {["Pipeline", "Features", "Demo"].map(label => (
               <a key={label} href={`#${label.toLowerCase()}`} data-hover style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", textDecoration: "none", padding: "6px 12px", borderRadius: 100, letterSpacing: "0.01em", transition: "color 0.2s, background 0.2s", whiteSpace: "nowrap" }}
                 onMouseEnter={e => { (e.currentTarget).style.color = "#fff"; (e.currentTarget).style.background = "rgba(255,255,255,0.07)"; }}
                 onMouseLeave={e => { (e.currentTarget).style.color = "rgba(255,255,255,0.4)"; (e.currentTarget).style.background = "transparent"; }}
@@ -587,7 +587,7 @@ export default function Home() {
 
         {/* ────────────────────── MOBILE MENU ────────────────────── */}
         <div className={`nav-mobile-menu${mobileMenuOpen ? " open" : ""}`} style={{ zIndex: 999 }}>
-          {["Pipeline", "Features", "Demo", "FAQ"].map(label => (
+          {["Pipeline", "Features", "Demo"].map(label => (
             <a key={label} href={`#${label.toLowerCase()}`} className="nav-mobile-link"
               onClick={() => setMobileMenuOpen(false)}
             >{label}</a>
@@ -886,13 +886,45 @@ export default function Home() {
             <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "linear-gradient(135deg, #4488ff, #88aaff)" }} />
             DSAgent
           </div>
-          <div style={{ display: "flex", gap: 24 }}>
-            {["Features", "Pipeline", "FAQ", "Dashboard", "GitHub"].map(l => (
-              <a key={l} href={l === "FAQ" ? "#faq" : "#"} data-hover style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none", letterSpacing: "0.02em", transition: "color 0.2s" }}
-                onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.65)"}
-                onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.22)"}
-              >{l}</a>
-            ))}
+          <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+            <a
+              href="#features"
+              data-hover
+              style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none", letterSpacing: "0.02em", transition: "color 0.2s" }}
+              onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.65)"}
+              onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.22)"}
+            >
+              Features
+            </a>
+            <a
+              href="#pipeline"
+              data-hover
+              style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none", letterSpacing: "0.02em", transition: "color 0.2s" }}
+              onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.65)"}
+              onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.22)"}
+            >
+              Pipeline
+            </a>
+            <Link
+              href="/dashboard"
+              data-hover
+              style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none", letterSpacing: "0.02em", transition: "color 0.2s" }}
+              onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.65)"}
+              onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.22)"}
+            >
+              Dashboard
+            </Link>
+            <a
+              href="https://github.com/jatinnathh/DSAgent"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-hover
+              style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", textDecoration: "none", letterSpacing: "0.02em", transition: "color 0.2s" }}
+              onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.65)"}
+              onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.22)"}
+            >
+              GitHub
+            </a>
           </div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", fontFamily: "var(--mono)" }}>© 2025 DSAgent</div>
         </footer>
