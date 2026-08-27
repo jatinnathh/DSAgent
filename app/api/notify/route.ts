@@ -103,7 +103,7 @@ export async function POST(req: Request) {
     console.log('[Notify API] Visitor info:', visitor);
 
     const textBody = `
-New Visitor
+Visitor Alert: ${event}
 
 Time:
 ${new Date().toLocaleString()}
