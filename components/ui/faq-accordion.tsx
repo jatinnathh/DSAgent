@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
+import { ChevronDown } from "lucide-react";
 
 export interface FaqItem {
   question: string;
@@ -44,7 +45,7 @@ const DEFAULT_ITEMS: FaqItem[] = [
 
 export function FaqAccordion({
   items = DEFAULT_ITEMS,
-  title = "Vengeance UI FAQs",
+  title,
   className,
   ...props
 }: FaqAccordionProps) {
@@ -56,10 +57,7 @@ export function FaqAccordion({
 
   return (
     <div
-      className={cn(
-        "w-full max-w-6xl mx-auto py-10 relative font-sans",
-        className
-      )}
+      className={cn("w-full relative font-sans", className)}
       {...props}
     >
       {title && (
@@ -68,7 +66,7 @@ export function FaqAccordion({
         </h2>
       )}
 
-      <ul className="w-full list-none p-0 flex flex-col">
+      <ul className="w-full list-none p-0 m-0 flex flex-col">
         {items.map((item, index) => {
           const isActive = activeIndex === index;
 
@@ -77,46 +75,52 @@ export function FaqAccordion({
               key={index}
               className={cn(
                 "w-full transition-all duration-300",
-                "border-b border-neutral-200 dark:border-neutral-800",
+                "border-b border-white/[0.07]",
                 "last:border-b-0"
               )}
             >
               <button
                 onClick={() => toggleItem(index)}
                 aria-expanded={isActive}
+                style={{
+                  paddingLeft: "32px",
+                  paddingRight: "28px",
+                  paddingTop: "24px",
+                  paddingBottom: "24px",
+                }}
                 className={cn(
-                  "relative flex items-center w-full",
-                  "min-h-[90px]",
-                  "pl-24 pr-10 py-6",
-                  "border-l-[8px]",
+                  "relative flex items-center justify-between w-full cursor-pointer",
+                  "border-l-[4px]",
                   "transition-all duration-300",
                   "text-left outline-none",
-
                   isActive
-                    ? "border-l-neutral-900 dark:border-l-white bg-neutral-100/40 dark:bg-neutral-900/40"
-                    : "border-l-neutral-300 dark:border-l-neutral-700 hover:border-l-neutral-500 dark:hover:border-l-neutral-500 hover:bg-neutral-100/20 dark:hover:bg-neutral-900/20"
+                    ? "border-l-white bg-white/[0.04]"
+                    : "border-l-transparent hover:border-l-white/40 hover:bg-white/[0.02]"
                 )}
               >
-            
                 {/* Question */}
                 <span
+                  style={{
+                    fontFamily: "var(--sans)",
+                    fontSize: "clamp(17px, 1.6vw, 20px)",
+                    letterSpacing: "-0.015em",
+                    lineHeight: 1.4,
+                  }}
                   className={cn(
-                    "flex-1 pr-16 text-xl md:text-2xl transition-colors duration-300",
+                    "flex-1 pr-6 transition-colors duration-300",
                     isActive
-                      ? "font-semibold text-neutral-900 dark:text-white"
-                      : "font-medium text-neutral-600 dark:text-neutral-400"
+                      ? "font-medium text-white"
+                      : "font-normal text-white/70 hover:text-white"
                   )}
                 >
                   {item.question}
                 </span>
 
                 {/* Chevron */}
-                <span
+                <ChevronDown
                   className={cn(
-                    "absolute right-8 block w-3 h-3 border-t-[3px] border-r-[3px] transition-transform duration-300",
-                    isActive
-                      ? "rotate-[-45deg] border-neutral-900 dark:border-white"
-                      : "rotate-[135deg] border-neutral-400 dark:border-neutral-500"
+                    "w-5 h-5 shrink-0 transition-transform duration-300 text-white/40",
+                    isActive && "rotate-180 text-white"
                   )}
                 />
               </button>
@@ -124,14 +128,25 @@ export function FaqAccordion({
               <div
                 className={cn(
                   "grid transition-all duration-300 ease-in-out",
-                  "border-l-[8px]",
+                  "border-l-[4px]",
                   isActive
-                    ? "grid-rows-[1fr] border-l-neutral-900 dark:border-l-white bg-neutral-100/40 dark:bg-neutral-900/40"
-                    : "grid-rows-[0fr] border-l-neutral-300 dark:border-l-neutral-700"
+                    ? "grid-rows-[1fr] border-l-white bg-white/[0.04]"
+                    : "grid-rows-[0fr] border-l-transparent"
                 )}
               >
                 <div className="overflow-hidden">
-                  <div className="pl-24 pr-12 pb-8 pt-2 text-lg leading-8 text-neutral-700 dark:text-neutral-300">
+                  <div
+                    style={{
+                      paddingLeft: "32px",
+                      paddingRight: "36px",
+                      paddingTop: "4px",
+                      paddingBottom: "26px",
+                      fontFamily: "var(--sans)",
+                      fontSize: 15,
+                      lineHeight: 1.75,
+                      color: "rgba(255, 255, 255, 0.45)",
+                    }}
+                  >
                     {item.answer}
                   </div>
                 </div>

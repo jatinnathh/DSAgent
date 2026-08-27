@@ -11,9 +11,6 @@ const RobotCanvas = dynamic(() => import("@/components/RobotCanvas"), {
   ssr: false,
 });
 
-/* ═══════════════════════════════════════════════════════════════
-   PROFESSIONAL INTRO — loader → mask reveal → 3D zoom handoff
-   ═══════════════════════════════════════════════════════════════ */
 function IntroOverlay({ onComplete }: { onComplete: () => void }) {
   const [phase, setPhase] = useState<"boot" | "load" | "reveal" | "done">("boot");
   const [progress, setProgress] = useState(0);
@@ -275,9 +272,6 @@ function Glass({ children, style, onMouseEnter, onMouseLeave, ...rest }: { child
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   UI — MARQUEE
-   ═══════════════════════════════════════════════════════════════ */
 const MARQUEE_ITEMS = ["Data Cleaning", "EDA", "Feature Engineering", "AutoML", "XGBoost", "LightGBM", "Random Forest", "Correlation Analysis", "Outlier Detection", "Model Evaluation", "Predictions", "Visualizations"];
 
 function Marquee() {
@@ -294,9 +288,6 @@ function Marquee() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   UI — COUNTER
-   ═══════════════════════════════════════════════════════════════ */
 function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true });
@@ -311,9 +302,6 @@ function Counter({ target, suffix = "" }: { target: number; suffix?: string }) {
   return <span ref={ref}>{val}{suffix}</span>;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   UI — TYPING LINE
-   ═══════════════════════════════════════════════════════════════ */
 function TypedLine({ text, delay = 0 }: { text: string; delay?: number }) {
   const [shown, setShown] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -334,9 +322,6 @@ function TypedLine({ text, delay = 0 }: { text: string; delay?: number }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   UI — HORIZONTAL PIPELINE
-   ═══════════════════════════════════════════════════════════════ */
 const STEPS = [
   { n: "01", title: "Upload", sub: "CSV · Excel · JSON", icon: "↑", desc: "Drag & drop any tabular dataset. Auto schema detection, type inference, and instant preview with sample rows." },
   { n: "02", title: "Clean", sub: "Detect · Impute · Remove", icon: "◌", desc: "Missing values, duplicate rows, outlier detection. One-click fixes or fully automated cleaning pipeline." },
@@ -378,9 +363,6 @@ function HorizontalPipeline() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   DATA CONSTANTS
-   ═══════════════════════════════════════════════════════════════ */
 const FEATURES = [
   { title: "AI Analyst Chat", body: "Ask questions about your data in plain English. Qwen with full tool-calling runs the actual analyses — no hallucinations, real results.", tag: "LLM" },
   { title: "Pipeline Builder", body: "Compose reusable workflows visually. AI suggests steps based on your dataset. Save, re-run on new data, view run history.", tag: "Builder" },
@@ -406,7 +388,7 @@ const DEMO_LINES = [
 ];
 
 export default function Home() {
-  /* ── scroll + mouse refs for 3D scene (no re-renders) ── */
+
   const scrollRef = useRef(0);
   const mouseRef = useRef({ x: 0, y: 0 });
   const [mounted, setMounted] = useState(false);
@@ -842,13 +824,13 @@ export default function Home() {
         </section>
 
         {/* ────────────────────── FAQ & CTA SPLIT ────────────────────── */}
-        <section id="faq" style={{ padding: "80px 24px 120px", borderTop: "1px solid rgba(255,255,255,0.05)", maxWidth: 1080, margin: "0 auto", position: "relative" }}>
+        <section id="faq" style={{ padding: "80px 24px 120px", borderTop: "1px solid rgba(255,255,255,0.05)", maxWidth: 1320, margin: "0 auto", position: "relative" }}>
           <div style={{ position: "absolute", top: "50%", right: "5%", transform: "translate(0,-50%)", width: 450, height: 450, background: "radial-gradient(circle,rgba(68,136,255,0.04) 0%,transparent 70%)", pointerEvents: "none" }} />
           
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-start">
             {/* Left Column: FAQ Accordion */}
             <motion.div 
-              className="lg:col-span-7"
+              className="lg:col-span-8"
               initial={{ opacity: 0, y: 28 }} 
               whileInView={{ opacity: 1, y: 0 }} 
               viewport={{ once: true }} 
@@ -865,7 +847,7 @@ export default function Home() {
 
             {/* Right Column: Start in Seconds CTA */}
             <motion.div 
-              className="lg:col-span-5 lg:sticky lg:top-32"
+              className="lg:col-span-4 lg:sticky lg:top-32"
               initial={{ opacity: 0, y: 30 }} 
               whileInView={{ opacity: 1, y: 0 }} 
               viewport={{ once: true }} 
@@ -899,7 +881,7 @@ export default function Home() {
         </section>
 
         {/* ────────────────────── FOOTER ────────────────────── */}
-        <footer style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "32px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14, maxWidth: 1080, margin: "0 auto" }}>
+        <footer style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "32px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14, maxWidth: 1320, margin: "0 auto" }}>
           <div style={{ fontFamily: "var(--serif)", fontSize: 17, color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "linear-gradient(135deg, #4488ff, #88aaff)" }} />
             DSAgent
