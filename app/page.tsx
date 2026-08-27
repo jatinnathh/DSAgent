@@ -662,7 +662,7 @@ export default function Home() {
                 onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}
               >Start Analysing <span style={{ opacity: 0.45 }}>→</span></Link>
               <button
-                onClick={handleWatchDemoClick}
+                // onClick={handleWatchDemoClick}
                 data-hover
                 style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "12px 26px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.65)", fontSize: 16, cursor: "pointer", letterSpacing: "-0.01em", transition: "border-color 0.2s, color 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.22)"; e.currentTarget.style.color = "#fff"; }}
